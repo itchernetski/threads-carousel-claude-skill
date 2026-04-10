@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Package manager lockfiles from sub-PMs
+# Keep bun.lock — that's our canonical package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Generated carousels / exports
+exports/
+*.carousel.png
+01-*.png
+02-*.png
+03-*.png
+04-*.png
+05-*.png
+06-*.png
+07-*.png
+08-*.png
+09-*.png
+10-*.png
+
+# Temp work dirs
+/tmp/

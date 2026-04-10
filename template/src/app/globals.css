@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+:root {
+  --font-inter: "Inter", system-ui, -apple-system, sans-serif;
+  --font-playfair: "Playfair Display", Georgia, serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
