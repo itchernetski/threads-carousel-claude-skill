@@ -193,6 +193,10 @@ Add a new entry to `FORMAT_PRESETS` in `src/lib/presets.ts` and update the `Form
 - [ ] **Per-slide background override** — different bg type per slide.
 - [ ] **Cyrillic-optimized defaults** — adjust adaptive sizing thresholds for Russian/Cyrillic text density.
 
+## Feedback
+
+Feature requests and ideas: [Telegram discussion](https://t.me/beyondcoinkeeper/170)
+
 ## Related projects
 
 - [Slashgear/linkedin-carousel-gen](https://github.com/Slashgear/linkedin-carousel-gen) — LinkedIn carousels via Satori + PDF (TypeScript + Bun)
