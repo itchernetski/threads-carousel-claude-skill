@@ -67,7 +67,7 @@ export const SLIDES: SlideData[] = [
   {
     type: "cta",
     text: "Попробуй в своём\nследующем посте",
-    handle: "@itchernetski",
+    handle: "github@itchernetski",
   },
 ];
 

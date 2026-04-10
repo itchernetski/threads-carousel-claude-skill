@@ -2,6 +2,8 @@
 
 A [Claude Code](https://claude.com/claude-code) skill that converts text posts into visual carousel images for **Threads, Instagram, LinkedIn, TikTok, and Stories**.
 
+![Preview](preview.png)
+
 Paste a text post (or a Markdown file) into Claude, say "сделай карусель" / "make a carousel", and get a browser preview with exportable PNGs. Opinionated dark-mode design system with a bold display typeface (Unbounded), 9 composable slide types, 7 background styles, and multi-platform format presets.
 
 ## Features
