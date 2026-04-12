@@ -2,9 +2,10 @@
 
 import { useRef, useState, useCallback, useEffect, ReactNode } from "react";
 import { toPng } from "html-to-image";
-import type { SlideData, BgType, StylePreset } from "../lib/types";
-import { PRESETS, FORMAT_PRESETS } from "../lib/presets";
-import { SLIDES, ACTIVE_PRESET, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
+import jsPDF from "jspdf";
+import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId } from "../lib/types";
+import { FONT_STYLES, COLOR_THEMES, composePreset, FORMAT_PRESETS } from "../lib/presets";
+import { SLIDES, DEFAULT_FONT, DEFAULT_COLOR, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
 
 const CANVAS_W = FORMAT_PRESETS[DEFAULT_FORMAT].w;
 const CANVAS_H = FORMAT_PRESETS[DEFAULT_FORMAT].h;
@@ -396,8 +397,20 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
   );
 }
 
-function TitleDivider({ preset: _preset }: { preset: StylePreset }) {
-  return null;
+function TitleDivider({ preset }: { preset: StylePreset }) {
+  if (preset.titleDivider === false) return null;
+  return (
+    <div
+      style={{
+        width: 96,
+        height: 4,
+        background: preset.accentColor,
+        opacity: 0.6,
+        marginBottom: 64,
+        position: "relative",
+      }}
+    />
+  );
 }
 
 function SlideTitle({
@@ -412,13 +425,14 @@ function SlideTitle({
   return (
     <div
       style={{
-        fontFamily: "var(--font-inter)",
-        fontSize: 72,
-        fontWeight: 700,
-        color: preset.textColor,
-        letterSpacing: "-0.02em",
+        fontFamily: preset.fontFamily,
+        fontSize: preset.titleFontSize ?? 44,
+        fontWeight: preset.titleFontWeight ?? 800,
+        color: preset.titleColor ?? preset.accentColor,
+        textTransform: (preset.titleUppercase ?? true) ? "uppercase" : "none",
+        letterSpacing: (preset.titleUppercase ?? true) ? "0.06em" : "-0.02em",
         lineHeight: 1.1,
-        marginBottom: 40,
+        marginBottom: 28,
         position: "relative",
         textWrap: "balance" as const,
       }}
@@ -619,9 +633,9 @@ function SlideBody({
         <div
           style={{
             fontSize: getAdaptiveFontSize(data.text || "", "body"),
-            fontWeight: 400,
-            color: preset.textSecondary,
-            lineHeight: 1.45,
+            fontWeight: preset.bodyFontWeight ?? 600,
+            color: preset.bodyColor ?? preset.textColor,
+            lineHeight: preset.bodyLineHeight ?? 1.2,
             whiteSpace: "pre-line",
             letterSpacing: "-0.01em",
             position: "relative",
@@ -1227,24 +1241,23 @@ function SlidePreview({
 // ============================================================
 
 export default function CarouselPage() {
-  const [activePreset, setActivePreset] = useState(ACTIVE_PRESET);
+  const [fontId, setFontId] = useState<FontId>(DEFAULT_FONT);
+  const [colorId, setColorId] = useState<ColorThemeId>(DEFAULT_COLOR);
+  const [purposeId, setPurposeId] = useState<PurposeId>(DEFAULT_PURPOSE);
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
   const offscreenRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const preset = PRESETS[activePreset] || PRESETS["minimal-dark"];
+  const preset = composePreset(FONT_STYLES[fontId], COLOR_THEMES[colorId], purposeId);
 
-  const exportSlide = useCallback(
-    async (index: number) => {
+  const captureSlide = useCallback(
+    async (index: number): Promise<string | null> => {
       const el = offscreenRefs.current[index];
-      if (!el) return;
+      if (!el) return null;
 
-      // Make the target slide briefly visible so browser fully paints SVG/filters
       el.style.opacity = "1";
       el.style.zIndex = "-1";
-
-      // Wait one animation frame so layout + paint settle
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
       const opts = {
@@ -1255,27 +1268,34 @@ export default function CarouselPage() {
         backgroundColor: preset.bg,
       };
 
-      // Double-call trick: first warms fonts / images, second captures
+      // Double-call: first warms fonts/images, second captures
       await toPng(el, opts);
       await new Promise((r) => setTimeout(r, 120));
       const dataUrl = await toPng(el, opts);
 
       el.style.opacity = "0";
       el.style.zIndex = "-1";
+      return dataUrl;
+    },
+    [preset.bg]
+  );
 
-      // Download
+  const exportSlide = useCallback(
+    async (index: number) => {
+      const dataUrl = await captureSlide(index);
+      if (!dataUrl) return;
       const link = document.createElement("a");
       link.download = `${String(index + 1).padStart(2, "0")}-${SLIDES[index].type}.png`;
       link.href = dataUrl;
       link.click();
     },
-    [preset.bg]
+    [captureSlide]
   );
 
   const exportAll = useCallback(async () => {
     setExporting(true);
     for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(`Exporting slide ${i + 1}/${SLIDES.length}...`);
+      setExportStatus(`Exporting ${i + 1}/${SLIDES.length}...`);
       await exportSlide(i);
       await new Promise((r) => setTimeout(r, 300));
     }
@@ -1284,87 +1304,185 @@ export default function CarouselPage() {
     setTimeout(() => setExportStatus(""), 2000);
   }, [exportSlide]);
 
+  const exportPdf = useCallback(async () => {
+    setExporting(true);
+    const isLandscape = CANVAS_W > CANVAS_H;
+    const pdf = new jsPDF({
+      orientation: isLandscape ? "landscape" : "portrait",
+      unit: "px",
+      format: [CANVAS_W, CANVAS_H],
+      hotfixes: ["px_scaling"],
+    });
+
+    for (let i = 0; i < SLIDES.length; i++) {
+      setExportStatus(`PDF ${i + 1}/${SLIDES.length}...`);
+      const dataUrl = await captureSlide(i);
+      if (!dataUrl) continue;
+      if (i > 0) pdf.addPage([CANVAS_W, CANVAS_H], isLandscape ? "landscape" : "portrait");
+      pdf.addImage(dataUrl, "PNG", 0, 0, CANVAS_W, CANVAS_H);
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    pdf.save("slides.pdf");
+    setExportStatus("Done!");
+    setExporting(false);
+    setTimeout(() => setExportStatus(""), 2000);
+  }, [captureSlide]);
+
   return (
     <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
       {/* Toolbar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          marginBottom: 32,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
-            Threads Carousel
-          </h1>
-          <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-            {FORMAT_PRESETS[DEFAULT_FORMAT].name} — {CANVAS_W}×{CANVAS_H}
+      <div style={{ marginBottom: 32 }}>
+        {/* Title + Export */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
+              Threads Carousel
+            </h1>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+              {FORMAT_PRESETS[DEFAULT_FORMAT].name} — {CANVAS_W}×{CANVAS_H}
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button
+              onClick={exportPdf}
+              disabled={exporting}
+              style={{
+                padding: "8px 20px",
+                borderRadius: 8,
+                border: "none",
+                background: exporting ? "#444" : "#6366F1",
+                color: "#fff",
+                cursor: exporting ? "not-allowed" : "pointer",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {exporting ? exportStatus : "Export PDF"}
+            </button>
+            <button
+              onClick={exportAll}
+              disabled={exporting}
+              style={{
+                padding: "8px 20px",
+                borderRadius: 8,
+                border: "none",
+                background: exporting ? "#444" : "#22C55E",
+                color: "#fff",
+                cursor: exporting ? "not-allowed" : "pointer",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {exporting ? exportStatus : "Export All"}
+            </button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          {Object.values(PRESETS).map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setActivePreset(p.id)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: activePreset === p.id ? "2px solid #6366F1" : "1px solid #333",
-                background: activePreset === p.id ? "#6366F1" : "transparent",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
+        {/* 4-row axis toolbar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Style (font) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Style</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {Object.values(FONT_STYLES).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFontId(f.id)}
+                  style={{
+                    padding: "5px 13px",
+                    borderRadius: 8,
+                    border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333",
+                    background: fontId === f.id ? "#6366F1" : "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
-            <button
-              key={bg}
-              onClick={() => setBgType(bg)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: bgType === bg ? "2px solid #22C55E" : "1px solid #333",
-                background: bgType === bg ? "#22C55E" : "transparent",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 500,
-                textTransform: "capitalize",
-              }}
-            >
-              {bg}
-            </button>
-          ))}
-        </div>
+          {/* Color theme */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Color</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Object.values(COLOR_THEMES).map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setColorId(c.id)}
+                  style={{
+                    padding: "5px 13px",
+                    borderRadius: 8,
+                    border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333",
+                    background: colorId === c.id ? "#6366F1" : "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <button
-          onClick={exportAll}
-          disabled={exporting}
-          style={{
-            padding: "8px 20px",
-            borderRadius: 8,
-            border: "none",
-            background: exporting ? "#444" : "#22C55E",
-            color: "#fff",
-            cursor: exporting ? "not-allowed" : "pointer",
-            fontSize: 14,
-            fontWeight: 600,
-            marginLeft: "auto",
-          }}
-        >
-          {exporting ? exportStatus : "Export All"}
-        </button>
+          {/* Background decoration */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Background</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
+                <button
+                  key={bg}
+                  onClick={() => setBgType(bg)}
+                  style={{
+                    padding: "5px 11px",
+                    borderRadius: 8,
+                    border: bgType === bg ? "2px solid #22C55E" : "1px solid #333",
+                    background: bgType === bg ? "#22C55E" : "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {bg}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Purpose */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Purpose</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["carousel", "presentation"] as PurposeId[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPurposeId(p)}
+                  style={{
+                    padding: "5px 13px",
+                    borderRadius: 8,
+                    border: purposeId === p ? "2px solid #F59E0B" : "1px solid #333",
+                    background: purposeId === p ? "#F59E0B" : "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Preview Grid */}
