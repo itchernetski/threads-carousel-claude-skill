@@ -42,6 +42,13 @@ export const FORMAT_PRESETS: Record<FormatId, FormatPreset> = {
     h: 1920,
     platform: "Instagram Stories, Threads",
   },
+  "wide-16x9": {
+    id: "wide-16x9",
+    name: "Wide 16:9",
+    w: 1920,
+    h: 1080,
+    platform: "Presentations, YouTube, Desktop",
+  },
 };
 
 export const PRESETS: Record<string, StylePreset> = {
@@ -53,8 +60,8 @@ export const PRESETS: Record<string, StylePreset> = {
     textSecondary: "rgba(255,255,255,0.5)",
     accentColor: "#FFFFFF",
     highlightColor: "#FACC15",
-    fontFamily: "var(--font-space-grotesk), var(--font-inter)",
-    hookFontFamily: "var(--font-unbounded)",
+    fontFamily: "var(--font-inter)",
+    hookFontFamily: "var(--font-inter)",
   },
   "minimal-light": {
     id: "minimal-light",

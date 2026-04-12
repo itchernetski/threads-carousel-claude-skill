@@ -270,7 +270,7 @@ function BigNumberDecoration({
         right: -60,
         bottom: -280,
         fontSize: 960,
-        fontFamily: "var(--font-unbounded)",
+        fontFamily: "var(--font-inter)",
         fontWeight: 900,
         color: `rgba(${r},${g},${b},0.055)`,
         lineHeight: 0.8,
@@ -377,7 +377,7 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
     <div
       style={{
         display: "inline-block",
-        fontFamily: "var(--font-unbounded)",
+        fontFamily: "var(--font-inter)",
         fontSize: 26,
         fontWeight: 800,
         padding: "10px 22px",
@@ -396,19 +396,8 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
   );
 }
 
-function TitleDivider({ preset }: { preset: StylePreset }) {
-  return (
-    <div
-      style={{
-        width: 96,
-        height: 4,
-        background: preset.accentColor,
-        opacity: 0.6,
-        marginBottom: 64,
-        position: "relative",
-      }}
-    />
-  );
+function TitleDivider({ preset: _preset }: { preset: StylePreset }) {
+  return null;
 }
 
 function SlideTitle({
@@ -423,14 +412,13 @@ function SlideTitle({
   return (
     <div
       style={{
-        fontFamily: "var(--font-unbounded)",
-        fontSize: 44,
-        fontWeight: 800,
-        color: preset.accentColor,
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
-        marginBottom: 28,
-        opacity: 1,
+        fontFamily: "var(--font-inter)",
+        fontSize: 72,
+        fontWeight: 700,
+        color: preset.textColor,
+        letterSpacing: "-0.02em",
+        lineHeight: 1.1,
+        marginBottom: 40,
         position: "relative",
         textWrap: "balance" as const,
       }}
@@ -531,6 +519,40 @@ function SlideHook({
   );
 }
 
+function getPointsFontSize(points: Array<{ type: string; text: string }>): number {
+  const count = points.length;
+  const maxLen = Math.max(...points.map((p) => p.text.length));
+  let byCount = 62;
+  if (count >= 6) byCount = 44;
+  else if (count >= 5) byCount = 48;
+  else if (count >= 4) byCount = 54;
+  else if (count >= 3) byCount = 58;
+  let byLen = 62;
+  if (maxLen > 50) byLen = 44;
+  else if (maxLen > 40) byLen = 50;
+  else if (maxLen > 30) byLen = 56;
+  return Math.min(byCount, byLen);
+}
+
+function IconCheck({ size }: { size: number }) {
+  const stroke = Math.max(1.5, size * 0.1);
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 13 9 18 20 7" />
+    </svg>
+  );
+}
+
+function IconCross({ size }: { size: number }) {
+  const stroke = Math.max(1.5, size * 0.1);
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round">
+      <line x1="5" y1="5" x2="19" y2="19" />
+      <line x1="19" y1="5" x2="5" y2="19" />
+    </svg>
+  );
+}
+
 function SlideBody({
   data,
   preset,
@@ -567,24 +589,52 @@ function SlideBody({
           <TitleDivider preset={preset} />
         </>
       )}
-      <div
-        style={{
-          fontSize: getAdaptiveFontSize(data.text || "", "body"),
-          fontWeight: 600,
-          color: preset.textColor,
-          lineHeight: 1.2,
-          whiteSpace: "pre-line",
-          letterSpacing: "-0.01em",
-          position: "relative",
-          textWrap: "balance" as const,
-        }}
-      >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
-      </div>
+      {data.points ? (
+        <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>
+          {data.points.map((point, i) => {
+            const fontSize = getPointsFontSize(data.points!);
+            const iconSize = Math.round(fontSize * 0.65);
+            const isFirstMinus = point.type === "minus" && (i === 0 || data.points![i - 1].type === "plus");
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: Math.round(fontSize * 0.45),
+                  marginTop: isFirstMinus ? Math.round(fontSize * 0.9) : (i === 0 ? 0 : Math.round(fontSize * 0.3)),
+                }}
+              >
+                <div style={{ flexShrink: 0, display: "flex", alignItems: "center", color: point.type === "plus" ? "#22c55e" : preset.textSecondary }}>
+                  {point.type === "plus" ? <IconCheck size={iconSize} /> : <IconCross size={iconSize} />}
+                </div>
+                <span style={{ fontSize, fontWeight: 600, color: point.type === "plus" ? preset.textColor : preset.textSecondary, lineHeight: 1.25, letterSpacing: "-0.01em" }}>
+                  {point.text}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          style={{
+            fontSize: getAdaptiveFontSize(data.text || "", "body"),
+            fontWeight: 400,
+            color: preset.textSecondary,
+            lineHeight: 1.45,
+            whiteSpace: "pre-line",
+            letterSpacing: "-0.01em",
+            position: "relative",
+            textWrap: "balance" as const,
+          }}
+        >
+          {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
+        </div>
+      )}
       {data.handle && (
         <div
           style={{
-            fontFamily: "var(--font-unbounded)",
+            fontFamily: "var(--font-inter)",
             fontSize: 36,
             fontWeight: 500,
             color: preset.textSecondary,
@@ -677,7 +727,7 @@ function SlideList({
           >
             <div
               style={{
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: "var(--font-inter)",
                 fontSize: 48,
                 fontWeight: 800,
                 color: preset.highlightColor,
@@ -742,7 +792,7 @@ function SlideStats({
           <div key={i} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <div
               style={{
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: "var(--font-inter)",
                 fontSize: stats.length > 2 ? 140 : 170,
                 fontWeight: 900,
                 color: preset.highlightColor,
@@ -788,7 +838,7 @@ function SlideQuote({
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       <div
         style={{
-          fontFamily: "var(--font-unbounded)",
+          fontFamily: "var(--font-inter)",
           fontSize: 200,
           fontWeight: 900,
           color: preset.highlightColor,
@@ -817,7 +867,7 @@ function SlideQuote({
         <div
           style={{
             marginTop: 48,
-            fontFamily: "var(--font-unbounded)",
+            fontFamily: "var(--font-inter)",
             fontSize: 32,
             fontWeight: 700,
             color: preset.accentColor,
@@ -885,7 +935,7 @@ function SlideChecklist({
                 color: preset.bg,
                 fontSize: 34,
                 fontWeight: 900,
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: "var(--font-inter)",
               }}
             >
               ✓
@@ -953,7 +1003,7 @@ function SlideProcess({
                   alignItems: "center",
                   justifyContent: "center",
                   color: preset.bg,
-                  fontFamily: "var(--font-unbounded)",
+                  fontFamily: "var(--font-inter)",
                   fontWeight: 900,
                   fontSize: 32,
                 }}
@@ -975,7 +1025,7 @@ function SlideProcess({
             <div style={{ flex: 1, paddingTop: 4 }}>
               <div
                 style={{
-                  fontFamily: "var(--font-unbounded)",
+                  fontFamily: "var(--font-inter)",
                   fontSize: 36,
                   fontWeight: 700,
                   color: preset.accentColor,
@@ -1045,7 +1095,7 @@ function SlideComparison({
           >
             <div
               style={{
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: "var(--font-inter)",
                 fontSize: 32,
                 fontWeight: 800,
                 color: col.color,

@@ -11,6 +11,7 @@
 // - DEFAULT_FORMAT: canvas size per platform (threads-4x5, instagram-square, linkedin-square, tiktok-9x16, story-9x16)
 //
 // Demo below showcases all 9 slide types: hook / body / list / stats / quote / checklist / process / comparison / cta
+// body slides also support `points` — a list of { type: "plus" | "minus", text } rendered with SVG check/cross icons
 // ============================================================
 
 import type { SlideData, BgType, FormatId } from "./lib/types";
@@ -43,9 +44,12 @@ export const SLIDES: SlideData[] = [
   {
     type: "body",
     badge: "03",
-    title: "Типографика",
-    text: "Unbounded для заголовков.\nSpace Grotesk для body.\n\nЖёлтый highlight на ключевых словах. Badges с номерами слайдов.",
-    highlight: "Unbounded",
+    title: "Плюсы и минусы",
+    points: [
+      { type: "plus", text: "Быстрая регистрация" },
+      { type: "plus", text: "Работает на любом фоне" },
+      { type: "minus", text: "Требует настройки" },
+    ],
   },
   {
     type: "stats",

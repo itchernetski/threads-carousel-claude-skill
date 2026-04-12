@@ -29,7 +29,8 @@ export type FormatId =
   | "instagram-square"
   | "linkedin-square"
   | "tiktok-9x16"
-  | "story-9x16";
+  | "story-9x16"
+  | "wide-16x9";
 
 export interface SlideData {
   type: SlideType;
@@ -52,6 +53,8 @@ export interface SlideData {
   leftItems?: string[];
   rightLabel?: string;
   rightItems?: string[];
+  // icon points (plus/minus list with SVG icons)
+  points?: Array<{ type: "plus" | "minus"; text: string }>;
 }
 
 export interface StylePreset {
