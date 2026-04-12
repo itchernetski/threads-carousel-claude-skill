@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect, ReactNode } from "react";
-import { toPng } from "html-to-image";
+import { toPng, toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId } from "../lib/types";
 import { FONT_STYLES, COLOR_THEMES, composePreset, FORMAT_PRESETS } from "../lib/presets";
@@ -1307,19 +1307,26 @@ export default function CarouselPage() {
   const exportPdf = useCallback(async () => {
     setExporting(true);
     const isLandscape = CANVAS_W > CANVAS_H;
-    const pdf = new jsPDF({
-      orientation: isLandscape ? "landscape" : "portrait",
-      unit: "px",
-      format: [CANVAS_W, CANVAS_H],
-      hotfixes: ["px_scaling"],
-    });
+    const orientation = isLandscape ? "landscape" : "portrait";
+    const pdf = new jsPDF({ orientation, unit: "px", format: [CANVAS_W, CANVAS_H], hotfixes: ["px_scaling"] });
+    const jpegOpts = { width: CANVAS_W, height: CANVAS_H, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
 
     for (let i = 0; i < SLIDES.length; i++) {
       setExportStatus(`PDF ${i + 1}/${SLIDES.length}...`);
-      const dataUrl = await captureSlide(i);
-      if (!dataUrl) continue;
-      if (i > 0) pdf.addPage([CANVAS_W, CANVAS_H], isLandscape ? "landscape" : "portrait");
-      pdf.addImage(dataUrl, "PNG", 0, 0, CANVAS_W, CANVAS_H);
+      const el = offscreenRefs.current[i];
+      if (!el) continue;
+
+      el.style.opacity = "1";
+      el.style.zIndex = "-1";
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await toJpeg(el, jpegOpts); // warm up
+      await new Promise((r) => setTimeout(r, 120));
+      const dataUrl = await toJpeg(el, jpegOpts);
+      el.style.opacity = "0";
+      el.style.zIndex = "-1";
+
+      if (i > 0) pdf.addPage([CANVAS_W, CANVAS_H], orientation);
+      pdf.addImage(dataUrl, "JPEG", 0, 0, CANVAS_W, CANVAS_H);
       await new Promise((r) => setTimeout(r, 200));
     }
 
@@ -1327,7 +1334,7 @@ export default function CarouselPage() {
     setExportStatus("Done!");
     setExporting(false);
     setTimeout(() => setExportStatus(""), 2000);
-  }, [captureSlide]);
+  }, [preset.bg]);
 
   return (
     <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
