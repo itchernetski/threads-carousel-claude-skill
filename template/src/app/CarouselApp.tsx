@@ -2,7 +2,6 @@
 
 import { useRef, useState, useCallback, useEffect, ReactNode, createContext, useContext } from "react";
 import { toPng, toJpeg } from "html-to-image";
-import jsPDF from "jspdf";
 import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId, FormatId } from "../lib/types";
 import { FONT_STYLES, COLOR_THEMES, composePreset, FORMAT_PRESETS } from "../lib/presets";
 import { SLIDES, DEFAULT_FONT, DEFAULT_COLOR, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
@@ -1322,6 +1321,7 @@ export default function CarouselPage() {
     setExporting(true);
     const isLandscape = canvasW > canvasH;
     const orientation = isLandscape ? "landscape" : "portrait";
+    const { default: jsPDF } = await import("jspdf");
     const pdf = new jsPDF({ orientation, unit: "px", format: [canvasW, canvasH], hotfixes: ["px_scaling"] });
     const jpegOpts = { width: canvasW, height: canvasH, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
 
