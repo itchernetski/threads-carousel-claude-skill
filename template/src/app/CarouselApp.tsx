@@ -1421,7 +1421,7 @@ export default function CarouselPage() {
         {/* Title + Export + Lang toggle */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{t.appTitle}</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, textWrap: "balance" } as React.CSSProperties}>{t.appTitle}</h1>
             <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
               {FORMAT_PRESETS[formatId].name} — {canvasW}×{canvasH}
             </div>
@@ -1433,8 +1433,10 @@ export default function CarouselPage() {
                 <button
                   key={l}
                   onClick={() => setLang(l)}
+                  className="tb-btn"
                   style={{
-                    padding: "6px 12px",
+                    padding: "9px 12px",
+                    minHeight: 36,
                     border: "none",
                     background: lang === l ? "#555" : "transparent",
                     color: lang === l ? "#fff" : "#888",
@@ -1448,10 +1450,10 @@ export default function CarouselPage() {
                 </button>
               ))}
             </div>
-            <button onClick={exportPdf} disabled={exporting} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: exporting ? "#444" : "#6366F1", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}>
+            <button onClick={exportPdf} disabled={exporting} style={{ padding: "8px 20px", minHeight: 36, borderRadius: 8, border: "none", background: exporting ? "#444" : "#6366F1", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }} className="tb-btn">
               {exporting ? exportStatus : t.btnPdf}
             </button>
-            <button onClick={exportAll} disabled={exporting} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: exporting ? "#444" : "#22C55E", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}>
+            <button onClick={exportAll} disabled={exporting} style={{ padding: "8px 20px", minHeight: 36, borderRadius: 8, border: "none", background: exporting ? "#444" : "#22C55E", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }} className="tb-btn">
               {exporting ? exportStatus : t.btnAll}
             </button>
           </div>
@@ -1465,7 +1467,7 @@ export default function CarouselPage() {
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFormat}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.values(FORMAT_PRESETS).map((f) => (
-                <button key={f.id} onClick={() => setFormatId(f.id)} title={f.platform} style={{ padding: "5px 13px", borderRadius: 8, border: formatId === f.id ? "2px solid #06B6D4" : "1px solid #333", background: formatId === f.id ? "#06B6D4" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                <button key={f.id} onClick={() => setFormatId(f.id)} title={f.platform} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: formatId === f.id ? "2px solid #06B6D4" : "1px solid #333", background: formatId === f.id ? "#06B6D4" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
                   {f.name}
                 </button>
               ))}
@@ -1477,7 +1479,7 @@ export default function CarouselPage() {
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowMode}</span>
             <div style={{ display: "flex", gap: 6 }}>
               {(["carousel", "presentation"] as PurposeId[]).map((p) => (
-                <button key={p} onClick={() => setPurposeId(p)} style={{ padding: "5px 13px", borderRadius: 8, border: purposeId === p ? "2px solid #F59E0B" : "1px solid #333", background: purposeId === p ? "#F59E0B" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                <button key={p} onClick={() => setPurposeId(p)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: purposeId === p ? "2px solid #F59E0B" : "1px solid #333", background: purposeId === p ? "#F59E0B" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
                   {t.modes[p]}
                 </button>
               ))}
@@ -1489,7 +1491,7 @@ export default function CarouselPage() {
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFont}</span>
             <div style={{ display: "flex", gap: 6 }}>
               {Object.values(FONT_STYLES).map((f) => (
-                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "5px 13px", borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
                   {f.name}
                 </button>
               ))}
@@ -1501,7 +1503,7 @@ export default function CarouselPage() {
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowColor}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.values(COLOR_THEMES).map((c) => (
-                <button key={c.id} onClick={() => setColorId(c.id)} style={{ padding: "5px 13px", borderRadius: 8, border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333", background: colorId === c.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                <button key={c.id} onClick={() => setColorId(c.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333", background: colorId === c.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
                   {t.colors[c.id]}
                 </button>
               ))}
@@ -1513,7 +1515,7 @@ export default function CarouselPage() {
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowBg}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
-                <button key={bg} onClick={() => setBgType(bg)} style={{ padding: "5px 11px", borderRadius: 8, border: bgType === bg ? "2px solid #22C55E" : "1px solid #333", background: bgType === bg ? "#22C55E" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                <button key={bg} onClick={() => setBgType(bg)} style={{ padding: "9px 12px", minHeight: 36, borderRadius: 8, border: bgType === bg ? "2px solid #22C55E" : "1px solid #333", background: bgType === bg ? "#22C55E" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
                   {t.bgs[bg]}
                 </button>
               ))}
@@ -1552,6 +1554,7 @@ export default function CarouselPage() {
                 color: "#888",
                 marginTop: 8,
                 textAlign: "center",
+                fontVariantNumeric: "tabular-nums",
               }}
             >
               {i + 1}/{SLIDES.length} — {slide.type}

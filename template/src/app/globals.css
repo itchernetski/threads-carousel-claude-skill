@@ -13,3 +13,15 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Toolbar buttons — transitions + press scale */
+.tb-btn {
+  -webkit-user-select: none;
+  user-select: none;
+  transition-property: background, border-color, transform, color;
+  transition-duration: 0.12s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.tb-btn:active {
+  transform: scale(0.96);
+}
