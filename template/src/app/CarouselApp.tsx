@@ -1247,10 +1247,69 @@ function SlidePreview({
 }
 
 // ============================================================
+// I18N
+// ============================================================
+
+type Lang = "en" | "ru";
+
+const T = {
+  en: {
+    appTitle: "Threads Carousel",
+    rowFont: "Font",
+    rowColor: "Color",
+    rowBg: "Background",
+    rowMode: "Mode",
+    rowFormat: "Format",
+    btnPdf: "Export PDF",
+    btnAll: "Export All",
+    statusDone: "Done!",
+    statusExport: (i: number, n: number) => `Exporting ${i}/${n}...`,
+    statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
+    footer: (w: number, h: number, n: number) =>
+      `${w}×${h}px — ${n} slides — Click a slide to export individually`,
+    modes: { carousel: "Carousel", presentation: "Presentation" } as Record<PurposeId, string>,
+    bgs: {
+      none: "None", blobs: "Blobs", grid: "Grid", lines: "Lines",
+      noise: "Noise", bignumber: "Bignumber", glow: "Glow",
+    } as Record<BgType, string>,
+    colors: {
+      dark: "Dark", light: "Light", paper: "Paper", white: "White",
+      gradient: "Gradient", pastel: "Pastel", neon: "Neon", custom: "Custom",
+    } as Record<ColorThemeId, string>,
+  },
+  ru: {
+    appTitle: "Threads Carousel",
+    rowFont: "Шрифт",
+    rowColor: "Цвет",
+    rowBg: "Фон",
+    rowMode: "Режим",
+    rowFormat: "Формат",
+    btnPdf: "PDF",
+    btnAll: "PNG",
+    statusDone: "Готово!",
+    statusExport: (i: number, n: number) => `Экспорт ${i}/${n}...`,
+    statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
+    footer: (w: number, h: number, n: number) =>
+      `${w}×${h}px — ${n} слайдов — Нажми на слайд для экспорта`,
+    modes: { carousel: "Карусель", presentation: "Презентация" } as Record<PurposeId, string>,
+    bgs: {
+      none: "Нет", blobs: "Пятна", grid: "Сетка", lines: "Линии",
+      noise: "Шум", bignumber: "Номер", glow: "Свечение",
+    } as Record<BgType, string>,
+    colors: {
+      dark: "Тёмный", light: "Светлый", paper: "Бумага", white: "Белый",
+      gradient: "Градиент", pastel: "Пастель", neon: "Неон", custom: "Свой",
+    } as Record<ColorThemeId, string>,
+  },
+} as const;
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
 export default function CarouselPage() {
+  const [lang, setLang] = useState<Lang>("ru");
+  const t = T[lang];
   const [fontId, setFontId] = useState<FontId>(DEFAULT_FONT);
   const [colorId, setColorId] = useState<ColorThemeId>(DEFAULT_COLOR);
   const [purposeId, setPurposeId] = useState<PurposeId>(DEFAULT_PURPOSE);
@@ -1258,6 +1317,8 @@ export default function CarouselPage() {
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
+  const langRef = useRef<Lang>("ru");
+  langRef.current = lang;
   const offscreenRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const canvasW = FORMAT_PRESETS[formatId].w;
@@ -1307,12 +1368,13 @@ export default function CarouselPage() {
 
   const exportAll = useCallback(async () => {
     setExporting(true);
+    const tl = T[langRef.current];
     for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(`Exporting ${i + 1}/${SLIDES.length}...`);
+      setExportStatus(tl.statusExport(i + 1, SLIDES.length));
       await exportSlide(i);
       await new Promise((r) => setTimeout(r, 300));
     }
-    setExportStatus("Done!");
+    setExportStatus(tl.statusDone);
     setExporting(false);
     setTimeout(() => setExportStatus(""), 2000);
   }, [exportSlide]);
@@ -1325,8 +1387,9 @@ export default function CarouselPage() {
     const pdf = new jsPDF({ orientation, unit: "px", format: [canvasW, canvasH], hotfixes: ["px_scaling"] });
     const jpegOpts = { width: canvasW, height: canvasH, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
 
+    const tl = T[langRef.current];
     for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(`PDF ${i + 1}/${SLIDES.length}...`);
+      setExportStatus(tl.statusPdf(i + 1, SLIDES.length));
       const el = offscreenRefs.current[i];
       if (!el) continue;
 
@@ -1345,7 +1408,7 @@ export default function CarouselPage() {
     }
 
     pdf.save("slides.pdf");
-    setExportStatus("Done!");
+    setExportStatus(T[langRef.current].statusDone);
     setExporting(false);
     setTimeout(() => setExportStatus(""), 2000);
   }, [preset.bg, canvasW, canvasH]);
@@ -1355,181 +1418,108 @@ export default function CarouselPage() {
     <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
       {/* Toolbar */}
       <div style={{ marginBottom: 32 }}>
-        {/* Title + Export */}
+        {/* Title + Export + Lang toggle */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
-              Threads Carousel
-            </h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{t.appTitle}</h1>
             <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
               {FORMAT_PRESETS[formatId].name} — {canvasW}×{canvasH}
             </div>
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            <button
-              onClick={exportPdf}
-              disabled={exporting}
-              style={{
-                padding: "8px 20px",
-                borderRadius: 8,
-                border: "none",
-                background: exporting ? "#444" : "#6366F1",
-                color: "#fff",
-                cursor: exporting ? "not-allowed" : "pointer",
-                fontSize: 14,
-                fontWeight: 600,
-              }}
-            >
-              {exporting ? exportStatus : "Export PDF"}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+            {/* Lang toggle */}
+            <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #333" }}>
+              {(["en", "ru"] as Lang[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  style={{
+                    padding: "6px 12px",
+                    border: "none",
+                    background: lang === l ? "#555" : "transparent",
+                    color: lang === l ? "#fff" : "#888",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <button onClick={exportPdf} disabled={exporting} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: exporting ? "#444" : "#6366F1", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}>
+              {exporting ? exportStatus : t.btnPdf}
             </button>
-            <button
-              onClick={exportAll}
-              disabled={exporting}
-              style={{
-                padding: "8px 20px",
-                borderRadius: 8,
-                border: "none",
-                background: exporting ? "#444" : "#22C55E",
-                color: "#fff",
-                cursor: exporting ? "not-allowed" : "pointer",
-                fontSize: 14,
-                fontWeight: 600,
-              }}
-            >
-              {exporting ? exportStatus : "Export All"}
+            <button onClick={exportAll} disabled={exporting} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: exporting ? "#444" : "#22C55E", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}>
+              {exporting ? exportStatus : t.btnAll}
             </button>
           </div>
         </div>
 
-        {/* 4-row axis toolbar */}
+        {/* 5-row axis toolbar — order: Format → Mode → Font → Color → Background */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Style (font) */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Style</span>
-            <div style={{ display: "flex", gap: 6 }}>
-              {Object.values(FONT_STYLES).map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setFontId(f.id)}
-                  style={{
-                    padding: "5px 13px",
-                    borderRadius: 8,
-                    border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333",
-                    background: fontId === f.id ? "#6366F1" : "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                >
-                  {f.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Color theme */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Color</span>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {Object.values(COLOR_THEMES).map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setColorId(c.id)}
-                  style={{
-                    padding: "5px 13px",
-                    borderRadius: 8,
-                    border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333",
-                    background: colorId === c.id ? "#6366F1" : "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Background decoration */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Background</span>
-            <div style={{ display: "flex", gap: 6 }}>
-              {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
-                <button
-                  key={bg}
-                  onClick={() => setBgType(bg)}
-                  style={{
-                    padding: "5px 11px",
-                    borderRadius: 8,
-                    border: bgType === bg ? "2px solid #22C55E" : "1px solid #333",
-                    background: bgType === bg ? "#22C55E" : "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {bg}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Purpose */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Purpose</span>
-            <div style={{ display: "flex", gap: 6 }}>
-              {(["carousel", "presentation"] as PurposeId[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPurposeId(p)}
-                  style={{
-                    padding: "5px 13px",
-                    borderRadius: 8,
-                    border: purposeId === p ? "2px solid #F59E0B" : "1px solid #333",
-                    background: purposeId === p ? "#F59E0B" : "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Format */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Format</span>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFormat}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.values(FORMAT_PRESETS).map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setFormatId(f.id)}
-                  title={f.platform}
-                  style={{
-                    padding: "5px 13px",
-                    borderRadius: 8,
-                    border: formatId === f.id ? "2px solid #06B6D4" : "1px solid #333",
-                    background: formatId === f.id ? "#06B6D4" : "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                >
+                <button key={f.id} onClick={() => setFormatId(f.id)} title={f.platform} style={{ padding: "5px 13px", borderRadius: 8, border: formatId === f.id ? "2px solid #06B6D4" : "1px solid #333", background: formatId === f.id ? "#06B6D4" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
                   {f.name}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Mode */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowMode}</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["carousel", "presentation"] as PurposeId[]).map((p) => (
+                <button key={p} onClick={() => setPurposeId(p)} style={{ padding: "5px 13px", borderRadius: 8, border: purposeId === p ? "2px solid #F59E0B" : "1px solid #333", background: purposeId === p ? "#F59E0B" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  {t.modes[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFont}</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {Object.values(FONT_STYLES).map((f) => (
+                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "5px 13px", borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Color */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowColor}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Object.values(COLOR_THEMES).map((c) => (
+                <button key={c.id} onClick={() => setColorId(c.id)} style={{ padding: "5px 13px", borderRadius: 8, border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333", background: colorId === c.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  {t.colors[c.id]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Background */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowBg}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
+                <button key={bg} onClick={() => setBgType(bg)} style={{ padding: "5px 11px", borderRadius: 8, border: bgType === bg ? "2px solid #22C55E" : "1px solid #333", background: bgType === bg ? "#22C55E" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                  {t.bgs[bg]}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1602,7 +1592,7 @@ export default function CarouselPage() {
           textAlign: "center",
         }}
       >
-        {canvasW}×{canvasH}px — {SLIDES.length} slides — Click a slide to export individually
+        {t.footer(canvasW, canvasH, SLIDES.length)}
       </div>
     </div>
     </CanvasSizeContext.Provider>
