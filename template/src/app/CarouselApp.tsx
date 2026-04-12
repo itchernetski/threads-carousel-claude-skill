@@ -1223,6 +1223,7 @@ function SlidePreview({
 
   return (
     <div
+      className="slide-preview-wrapper"
       style={{
         width: "100%",
         aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
@@ -1460,7 +1461,8 @@ export default function CarouselPage() {
         </div>
 
         {/* 5-row axis toolbar — order: Format → Mode → Font → Color → Background */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* key={lang} causes remount → tbFadeIn animation plays on language switch */}
+        <div key={lang} className="tb-lang-fade" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 
           {/* Format */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1537,7 +1539,7 @@ export default function CarouselPage() {
           <div key={i}>
             <div
               onClick={() => !exporting && exportSlide(i)}
-              style={{ cursor: "pointer" }}
+              className="slide-card"
               title="Click to export this slide"
             >
               <SlidePreview
