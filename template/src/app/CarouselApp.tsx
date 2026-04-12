@@ -1,14 +1,17 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, ReactNode } from "react";
+import { useRef, useState, useCallback, useEffect, ReactNode, createContext, useContext } from "react";
 import { toPng, toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
-import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId } from "../lib/types";
+import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId, FormatId } from "../lib/types";
 import { FONT_STYLES, COLOR_THEMES, composePreset, FORMAT_PRESETS } from "../lib/presets";
 import { SLIDES, DEFAULT_FONT, DEFAULT_COLOR, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
 
 const CANVAS_W = FORMAT_PRESETS[DEFAULT_FORMAT].w;
 const CANVAS_H = FORMAT_PRESETS[DEFAULT_FORMAT].h;
+
+const CanvasSizeContext = createContext({ w: CANVAS_W, h: CANVAS_H });
+function useCanvasSize() { return useContext(CanvasSizeContext); }
 
 // ============================================================
 // ADAPTIVE FONT SIZE
@@ -127,6 +130,7 @@ function SlideDecorations({
   slideIndex: number;
   preset: StylePreset;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const rng = seededRandom(slideIndex * 7919 + 42);
   const blobCount = 1 + Math.floor(rng() * 2); // 1-2 blobs
   const { r, g, b } = hexToRgb(preset.accentColor);
@@ -179,6 +183,7 @@ function SlideDecorations({
 // ============================================================
 
 function GridDecoration({ preset }: { preset: StylePreset }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const { r, g, b } = hexToRgb(preset.accentColor);
   return (
     <svg
@@ -197,6 +202,7 @@ function GridDecoration({ preset }: { preset: StylePreset }) {
 }
 
 function LinesDecoration({ preset }: { preset: StylePreset }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const { r, g, b } = hexToRgb(preset.accentColor);
   return (
     <svg
@@ -228,6 +234,7 @@ function LinesDecoration({ preset }: { preset: StylePreset }) {
 }
 
 function NoiseDecoration({ slideIndex }: { slideIndex: number }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const id = `noise-${slideIndex}`;
   return (
     <svg
@@ -497,6 +504,7 @@ function SlideHook({
   total: number;
   bgType: BgType;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   return (
     <div
       style={{
@@ -580,6 +588,7 @@ function SlideBody({
   total: number;
   bgType: BgType;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   return (
     <div
       style={{
@@ -684,6 +693,7 @@ function SlideShell({
   bgType: BgType;
   center?: boolean;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   return (
     <div
       style={{
@@ -1192,6 +1202,7 @@ function SlidePreview({
   total: number;
   bgType: BgType;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -1209,7 +1220,7 @@ function SlidePreview({
     });
     observer.observe(parent);
     return () => observer.disconnect();
-  }, []);
+  }, [CANVAS_W]);
 
   return (
     <div
@@ -1244,11 +1255,14 @@ export default function CarouselPage() {
   const [fontId, setFontId] = useState<FontId>(DEFAULT_FONT);
   const [colorId, setColorId] = useState<ColorThemeId>(DEFAULT_COLOR);
   const [purposeId, setPurposeId] = useState<PurposeId>(DEFAULT_PURPOSE);
+  const [formatId, setFormatId] = useState<FormatId>(DEFAULT_FORMAT);
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
   const offscreenRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  const canvasW = FORMAT_PRESETS[formatId].w;
+  const canvasH = FORMAT_PRESETS[formatId].h;
   const preset = composePreset(FONT_STYLES[fontId], COLOR_THEMES[colorId], purposeId);
 
   const captureSlide = useCallback(
@@ -1261,8 +1275,8 @@ export default function CarouselPage() {
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
       const opts = {
-        width: CANVAS_W,
-        height: CANVAS_H,
+        width: canvasW,
+        height: canvasH,
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: preset.bg,
@@ -1306,10 +1320,10 @@ export default function CarouselPage() {
 
   const exportPdf = useCallback(async () => {
     setExporting(true);
-    const isLandscape = CANVAS_W > CANVAS_H;
+    const isLandscape = canvasW > canvasH;
     const orientation = isLandscape ? "landscape" : "portrait";
-    const pdf = new jsPDF({ orientation, unit: "px", format: [CANVAS_W, CANVAS_H], hotfixes: ["px_scaling"] });
-    const jpegOpts = { width: CANVAS_W, height: CANVAS_H, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
+    const pdf = new jsPDF({ orientation, unit: "px", format: [canvasW, canvasH], hotfixes: ["px_scaling"] });
+    const jpegOpts = { width: canvasW, height: canvasH, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
 
     for (let i = 0; i < SLIDES.length; i++) {
       setExportStatus(`PDF ${i + 1}/${SLIDES.length}...`);
@@ -1325,8 +1339,8 @@ export default function CarouselPage() {
       el.style.opacity = "0";
       el.style.zIndex = "-1";
 
-      if (i > 0) pdf.addPage([CANVAS_W, CANVAS_H], orientation);
-      pdf.addImage(dataUrl, "JPEG", 0, 0, CANVAS_W, CANVAS_H);
+      if (i > 0) pdf.addPage([canvasW, canvasH], orientation);
+      pdf.addImage(dataUrl, "JPEG", 0, 0, canvasW, canvasH);
       await new Promise((r) => setTimeout(r, 200));
     }
 
@@ -1334,9 +1348,10 @@ export default function CarouselPage() {
     setExportStatus("Done!");
     setExporting(false);
     setTimeout(() => setExportStatus(""), 2000);
-  }, [preset.bg]);
+  }, [preset.bg, canvasW, canvasH]);
 
   return (
+    <CanvasSizeContext.Provider value={{ w: canvasW, h: canvasH }}>
     <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
       {/* Toolbar */}
       <div style={{ marginBottom: 32 }}>
@@ -1347,7 +1362,7 @@ export default function CarouselPage() {
               Threads Carousel
             </h1>
             <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-              {FORMAT_PRESETS[DEFAULT_FORMAT].name} — {CANVAS_W}×{CANVAS_H}
+              {FORMAT_PRESETS[formatId].name} — {canvasW}×{canvasH}
             </div>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -1489,6 +1504,32 @@ export default function CarouselPage() {
               ))}
             </div>
           </div>
+
+          {/* Format */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 80, flexShrink: 0 }}>Format</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Object.values(FORMAT_PRESETS).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFormatId(f.id)}
+                  title={f.platform}
+                  style={{
+                    padding: "5px 13px",
+                    borderRadius: 8,
+                    border: formatId === f.id ? "2px solid #06B6D4" : "1px solid #333",
+                    background: formatId === f.id ? "#06B6D4" : "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1540,8 +1581,8 @@ export default function CarouselPage() {
             position: "fixed",
             top: 0,
             left: 0,
-            width: CANVAS_W,
-            height: CANVAS_H,
+            width: canvasW,
+            height: canvasH,
             opacity: 0,
             pointerEvents: "none",
             zIndex: -1,
@@ -1561,8 +1602,9 @@ export default function CarouselPage() {
           textAlign: "center",
         }}
       >
-        {CANVAS_W}x{CANVAS_H}px — {SLIDES.length} slides — Click a slide to export individually
+        {canvasW}×{canvasH}px — {SLIDES.length} slides — Click a slide to export individually
       </div>
     </div>
+    </CanvasSizeContext.Provider>
   );
 }
