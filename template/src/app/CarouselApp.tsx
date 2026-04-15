@@ -277,7 +277,7 @@ function BigNumberDecoration({
         right: -60,
         bottom: -280,
         fontSize: 960,
-        fontFamily: "var(--font-inter)",
+        fontFamily: preset.fontFamily,
         fontWeight: 900,
         color: `rgba(${r},${g},${b},0.055)`,
         lineHeight: 0.8,
@@ -384,7 +384,7 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
     <div
       style={{
         display: "inline-block",
-        fontFamily: "var(--font-inter)",
+        fontFamily: preset.fontFamily,
         fontSize: 26,
         fontWeight: 800,
         padding: "10px 22px",
@@ -656,7 +656,7 @@ function SlideBody({
       {data.handle && (
         <div
           style={{
-            fontFamily: "var(--font-inter)",
+            fontFamily: preset.fontFamily,
             fontSize: 36,
             fontWeight: 500,
             color: preset.textSecondary,
@@ -750,7 +750,7 @@ function SlideList({
           >
             <div
               style={{
-                fontFamily: "var(--font-inter)",
+                fontFamily: preset.fontFamily,
                 fontSize: 48,
                 fontWeight: 800,
                 color: preset.highlightColor,
@@ -815,7 +815,7 @@ function SlideStats({
           <div key={i} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <div
               style={{
-                fontFamily: "var(--font-inter)",
+                fontFamily: preset.fontFamily,
                 fontSize: stats.length > 2 ? 140 : 170,
                 fontWeight: 900,
                 color: preset.highlightColor,
@@ -861,7 +861,7 @@ function SlideQuote({
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       <div
         style={{
-          fontFamily: "var(--font-inter)",
+          fontFamily: preset.fontFamily,
           fontSize: 200,
           fontWeight: 900,
           color: preset.highlightColor,
@@ -890,7 +890,7 @@ function SlideQuote({
         <div
           style={{
             marginTop: 48,
-            fontFamily: "var(--font-inter)",
+            fontFamily: preset.fontFamily,
             fontSize: 32,
             fontWeight: 700,
             color: preset.accentColor,
@@ -958,7 +958,7 @@ function SlideChecklist({
                 color: preset.bg,
                 fontSize: 34,
                 fontWeight: 900,
-                fontFamily: "var(--font-inter)",
+                fontFamily: preset.fontFamily,
               }}
             >
               ✓
@@ -1026,7 +1026,7 @@ function SlideProcess({
                   alignItems: "center",
                   justifyContent: "center",
                   color: preset.bg,
-                  fontFamily: "var(--font-inter)",
+                  fontFamily: preset.fontFamily,
                   fontWeight: 900,
                   fontSize: 32,
                 }}
@@ -1048,7 +1048,7 @@ function SlideProcess({
             <div style={{ flex: 1, paddingTop: 4 }}>
               <div
                 style={{
-                  fontFamily: "var(--font-inter)",
+                  fontFamily: preset.fontFamily,
                   fontSize: 36,
                   fontWeight: 700,
                   color: preset.accentColor,
@@ -1118,7 +1118,7 @@ function SlideComparison({
           >
             <div
               style={{
-                fontFamily: "var(--font-inter)",
+                fontFamily: preset.fontFamily,
                 fontSize: 32,
                 fontWeight: 800,
                 color: col.color,
