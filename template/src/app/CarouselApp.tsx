@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, ReactNode } from "react";
-import { toPng } from "html-to-image";
-import type { SlideData, BgType, StylePreset } from "../lib/types";
-import { PRESETS, FORMAT_PRESETS } from "../lib/presets";
-import { SLIDES, ACTIVE_PRESET, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
+import { useRef, useState, useCallback, useEffect, ReactNode, createContext, useContext } from "react";
+import { toPng, toJpeg } from "html-to-image";
+import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId, FormatId } from "../lib/types";
+import { FONT_STYLES, COLOR_THEMES, composePreset, FORMAT_PRESETS } from "../lib/presets";
+import { SLIDES, DEFAULT_FONT, DEFAULT_COLOR, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
 
 const CANVAS_W = FORMAT_PRESETS[DEFAULT_FORMAT].w;
 const CANVAS_H = FORMAT_PRESETS[DEFAULT_FORMAT].h;
+
+const CanvasSizeContext = createContext({ w: CANVAS_W, h: CANVAS_H });
+function useCanvasSize() { return useContext(CanvasSizeContext); }
 
 // ============================================================
 // ADAPTIVE FONT SIZE
@@ -126,6 +129,7 @@ function SlideDecorations({
   slideIndex: number;
   preset: StylePreset;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const rng = seededRandom(slideIndex * 7919 + 42);
   const blobCount = 1 + Math.floor(rng() * 2); // 1-2 blobs
   const { r, g, b } = hexToRgb(preset.accentColor);
@@ -178,6 +182,7 @@ function SlideDecorations({
 // ============================================================
 
 function GridDecoration({ preset }: { preset: StylePreset }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const { r, g, b } = hexToRgb(preset.accentColor);
   return (
     <svg
@@ -196,6 +201,7 @@ function GridDecoration({ preset }: { preset: StylePreset }) {
 }
 
 function LinesDecoration({ preset }: { preset: StylePreset }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const { r, g, b } = hexToRgb(preset.accentColor);
   return (
     <svg
@@ -227,6 +233,7 @@ function LinesDecoration({ preset }: { preset: StylePreset }) {
 }
 
 function NoiseDecoration({ slideIndex }: { slideIndex: number }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const id = `noise-${slideIndex}`;
   return (
     <svg
@@ -270,7 +277,7 @@ function BigNumberDecoration({
         right: -60,
         bottom: -280,
         fontSize: 960,
-        fontFamily: "var(--font-unbounded)",
+        fontFamily: preset.fontFamily,
         fontWeight: 900,
         color: `rgba(${r},${g},${b},0.055)`,
         lineHeight: 0.8,
@@ -377,7 +384,7 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
     <div
       style={{
         display: "inline-block",
-        fontFamily: "var(--font-unbounded)",
+        fontFamily: preset.fontFamily,
         fontSize: 26,
         fontWeight: 800,
         padding: "10px 22px",
@@ -397,6 +404,7 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
 }
 
 function TitleDivider({ preset }: { preset: StylePreset }) {
+  if (preset.titleDivider === false) return null;
   return (
     <div
       style={{
@@ -423,14 +431,14 @@ function SlideTitle({
   return (
     <div
       style={{
-        fontFamily: "var(--font-unbounded)",
-        fontSize: 44,
-        fontWeight: 800,
-        color: preset.accentColor,
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
+        fontFamily: preset.fontFamily,
+        fontSize: preset.titleFontSize ?? 44,
+        fontWeight: preset.titleFontWeight ?? 800,
+        color: preset.titleColor ?? preset.accentColor,
+        textTransform: (preset.titleUppercase ?? true) ? "uppercase" : "none",
+        letterSpacing: (preset.titleUppercase ?? true) ? "0.06em" : "-0.02em",
+        lineHeight: 1.1,
         marginBottom: 28,
-        opacity: 1,
         position: "relative",
         textWrap: "balance" as const,
       }}
@@ -495,6 +503,7 @@ function SlideHook({
   total: number;
   bgType: BgType;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   return (
     <div
       style={{
@@ -531,6 +540,40 @@ function SlideHook({
   );
 }
 
+function getPointsFontSize(points: Array<{ type: string; text: string }>): number {
+  const count = points.length;
+  const maxLen = Math.max(...points.map((p) => p.text.length));
+  let byCount = 62;
+  if (count >= 6) byCount = 44;
+  else if (count >= 5) byCount = 48;
+  else if (count >= 4) byCount = 54;
+  else if (count >= 3) byCount = 58;
+  let byLen = 62;
+  if (maxLen > 50) byLen = 44;
+  else if (maxLen > 40) byLen = 50;
+  else if (maxLen > 30) byLen = 56;
+  return Math.min(byCount, byLen);
+}
+
+function IconCheck({ size }: { size: number }) {
+  const stroke = Math.max(1.5, size * 0.1);
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 13 9 18 20 7" />
+    </svg>
+  );
+}
+
+function IconCross({ size }: { size: number }) {
+  const stroke = Math.max(1.5, size * 0.1);
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round">
+      <line x1="5" y1="5" x2="19" y2="19" />
+      <line x1="19" y1="5" x2="5" y2="19" />
+    </svg>
+  );
+}
+
 function SlideBody({
   data,
   preset,
@@ -544,6 +587,7 @@ function SlideBody({
   total: number;
   bgType: BgType;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   return (
     <div
       style={{
@@ -567,24 +611,52 @@ function SlideBody({
           <TitleDivider preset={preset} />
         </>
       )}
-      <div
-        style={{
-          fontSize: getAdaptiveFontSize(data.text || "", "body"),
-          fontWeight: 600,
-          color: preset.textColor,
-          lineHeight: 1.2,
-          whiteSpace: "pre-line",
-          letterSpacing: "-0.01em",
-          position: "relative",
-          textWrap: "balance" as const,
-        }}
-      >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
-      </div>
+      {data.points ? (
+        <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>
+          {data.points.map((point, i) => {
+            const fontSize = getPointsFontSize(data.points!);
+            const iconSize = Math.round(fontSize * 0.65);
+            const isFirstMinus = point.type === "minus" && (i === 0 || data.points![i - 1].type === "plus");
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: Math.round(fontSize * 0.45),
+                  marginTop: isFirstMinus ? Math.round(fontSize * 0.9) : (i === 0 ? 0 : Math.round(fontSize * 0.3)),
+                }}
+              >
+                <div style={{ flexShrink: 0, display: "flex", alignItems: "center", color: point.type === "plus" ? "#22c55e" : preset.textSecondary }}>
+                  {point.type === "plus" ? <IconCheck size={iconSize} /> : <IconCross size={iconSize} />}
+                </div>
+                <span style={{ fontSize, fontWeight: 600, color: point.type === "plus" ? preset.textColor : preset.textSecondary, lineHeight: 1.25, letterSpacing: "-0.01em" }}>
+                  {point.text}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          style={{
+            fontSize: getAdaptiveFontSize(data.text || "", "body"),
+            fontWeight: preset.bodyFontWeight ?? 600,
+            color: preset.bodyColor ?? preset.textColor,
+            lineHeight: preset.bodyLineHeight ?? 1.2,
+            whiteSpace: "pre-line",
+            letterSpacing: "-0.01em",
+            position: "relative",
+            textWrap: "balance" as const,
+          }}
+        >
+          {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
+        </div>
+      )}
       {data.handle && (
         <div
           style={{
-            fontFamily: "var(--font-unbounded)",
+            fontFamily: preset.fontFamily,
             fontSize: 36,
             fontWeight: 500,
             color: preset.textSecondary,
@@ -620,6 +692,7 @@ function SlideShell({
   bgType: BgType;
   center?: boolean;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   return (
     <div
       style={{
@@ -677,7 +750,7 @@ function SlideList({
           >
             <div
               style={{
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: preset.fontFamily,
                 fontSize: 48,
                 fontWeight: 800,
                 color: preset.highlightColor,
@@ -742,7 +815,7 @@ function SlideStats({
           <div key={i} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <div
               style={{
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: preset.fontFamily,
                 fontSize: stats.length > 2 ? 140 : 170,
                 fontWeight: 900,
                 color: preset.highlightColor,
@@ -788,7 +861,7 @@ function SlideQuote({
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       <div
         style={{
-          fontFamily: "var(--font-unbounded)",
+          fontFamily: preset.fontFamily,
           fontSize: 200,
           fontWeight: 900,
           color: preset.highlightColor,
@@ -817,7 +890,7 @@ function SlideQuote({
         <div
           style={{
             marginTop: 48,
-            fontFamily: "var(--font-unbounded)",
+            fontFamily: preset.fontFamily,
             fontSize: 32,
             fontWeight: 700,
             color: preset.accentColor,
@@ -885,7 +958,7 @@ function SlideChecklist({
                 color: preset.bg,
                 fontSize: 34,
                 fontWeight: 900,
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: preset.fontFamily,
               }}
             >
               ✓
@@ -953,7 +1026,7 @@ function SlideProcess({
                   alignItems: "center",
                   justifyContent: "center",
                   color: preset.bg,
-                  fontFamily: "var(--font-unbounded)",
+                  fontFamily: preset.fontFamily,
                   fontWeight: 900,
                   fontSize: 32,
                 }}
@@ -975,7 +1048,7 @@ function SlideProcess({
             <div style={{ flex: 1, paddingTop: 4 }}>
               <div
                 style={{
-                  fontFamily: "var(--font-unbounded)",
+                  fontFamily: preset.fontFamily,
                   fontSize: 36,
                   fontWeight: 700,
                   color: preset.accentColor,
@@ -1045,7 +1118,7 @@ function SlideComparison({
           >
             <div
               style={{
-                fontFamily: "var(--font-unbounded)",
+                fontFamily: preset.fontFamily,
                 fontSize: 32,
                 fontWeight: 800,
                 color: col.color,
@@ -1128,6 +1201,7 @@ function SlidePreview({
   total: number;
   bgType: BgType;
 }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -1145,10 +1219,11 @@ function SlidePreview({
     });
     observer.observe(parent);
     return () => observer.disconnect();
-  }, []);
+  }, [CANVAS_W]);
 
   return (
     <div
+      className="slide-preview-wrapper"
       style={{
         width: "100%",
         aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
@@ -1173,148 +1248,283 @@ function SlidePreview({
 }
 
 // ============================================================
+// I18N
+// ============================================================
+
+type Lang = "en" | "ru";
+
+const T = {
+  en: {
+    appTitle: "Threads Carousel",
+    rowFont: "Font",
+    rowColor: "Color",
+    rowBg: "Background",
+    rowMode: "Mode",
+    rowFormat: "Format",
+    btnPdf: "Export PDF",
+    btnAll: "Export All",
+    statusDone: "Done!",
+    statusExport: (i: number, n: number) => `Exporting ${i}/${n}...`,
+    statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
+    footer: (w: number, h: number, n: number) =>
+      `${w}×${h}px — ${n} slides — Click a slide to export individually`,
+    modes: { carousel: "Carousel", presentation: "Presentation" } as Record<PurposeId, string>,
+    bgs: {
+      none: "None", blobs: "Blobs", grid: "Grid", lines: "Lines",
+      noise: "Noise", bignumber: "Bignumber", glow: "Glow",
+    } as Record<BgType, string>,
+    colors: {
+      dark: "Dark", light: "Light", paper: "Paper", white: "White",
+      gradient: "Gradient", pastel: "Pastel", neon: "Neon", custom: "Custom",
+    } as Record<ColorThemeId, string>,
+  },
+  ru: {
+    appTitle: "Threads Carousel",
+    rowFont: "Шрифт",
+    rowColor: "Цвет",
+    rowBg: "Фон",
+    rowMode: "Режим",
+    rowFormat: "Формат",
+    btnPdf: "PDF",
+    btnAll: "PNG",
+    statusDone: "Готово!",
+    statusExport: (i: number, n: number) => `Экспорт ${i}/${n}...`,
+    statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
+    footer: (w: number, h: number, n: number) =>
+      `${w}×${h}px — ${n} слайдов — Нажми на слайд для экспорта`,
+    modes: { carousel: "Карусель", presentation: "Презентация" } as Record<PurposeId, string>,
+    bgs: {
+      none: "Нет", blobs: "Пятна", grid: "Сетка", lines: "Линии",
+      noise: "Шум", bignumber: "Номер", glow: "Свечение",
+    } as Record<BgType, string>,
+    colors: {
+      dark: "Тёмный", light: "Светлый", paper: "Бумага", white: "Белый",
+      gradient: "Градиент", pastel: "Пастель", neon: "Неон", custom: "Свой",
+    } as Record<ColorThemeId, string>,
+  },
+} as const;
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
 export default function CarouselPage() {
-  const [activePreset, setActivePreset] = useState(ACTIVE_PRESET);
+  const [lang, setLang] = useState<Lang>("ru");
+  const t = T[lang];
+  const [fontId, setFontId] = useState<FontId>(DEFAULT_FONT);
+  const [colorId, setColorId] = useState<ColorThemeId>(DEFAULT_COLOR);
+  const [purposeId, setPurposeId] = useState<PurposeId>(DEFAULT_PURPOSE);
+  const [formatId, setFormatId] = useState<FormatId>(DEFAULT_FORMAT);
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
+  const langRef = useRef<Lang>("ru");
+  langRef.current = lang;
   const offscreenRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const preset = PRESETS[activePreset] || PRESETS["minimal-dark"];
+  const canvasW = FORMAT_PRESETS[formatId].w;
+  const canvasH = FORMAT_PRESETS[formatId].h;
+  const preset = composePreset(FONT_STYLES[fontId], COLOR_THEMES[colorId], purposeId);
 
-  const exportSlide = useCallback(
-    async (index: number) => {
+  const captureSlide = useCallback(
+    async (index: number): Promise<string | null> => {
       const el = offscreenRefs.current[index];
-      if (!el) return;
+      if (!el) return null;
 
-      // Make the target slide briefly visible so browser fully paints SVG/filters
       el.style.opacity = "1";
       el.style.zIndex = "-1";
-
-      // Wait one animation frame so layout + paint settle
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
       const opts = {
-        width: CANVAS_W,
-        height: CANVAS_H,
+        width: canvasW,
+        height: canvasH,
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: preset.bg,
       };
 
-      // Double-call trick: first warms fonts / images, second captures
+      // Double-call: first warms fonts/images, second captures
       await toPng(el, opts);
       await new Promise((r) => setTimeout(r, 120));
       const dataUrl = await toPng(el, opts);
 
       el.style.opacity = "0";
       el.style.zIndex = "-1";
+      return dataUrl;
+    },
+    [preset.bg]
+  );
 
-      // Download
+  const exportSlide = useCallback(
+    async (index: number) => {
+      const dataUrl = await captureSlide(index);
+      if (!dataUrl) return;
       const link = document.createElement("a");
       link.download = `${String(index + 1).padStart(2, "0")}-${SLIDES[index].type}.png`;
       link.href = dataUrl;
       link.click();
     },
-    [preset.bg]
+    [captureSlide]
   );
 
   const exportAll = useCallback(async () => {
     setExporting(true);
+    const tl = T[langRef.current];
     for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(`Exporting slide ${i + 1}/${SLIDES.length}...`);
+      setExportStatus(tl.statusExport(i + 1, SLIDES.length));
       await exportSlide(i);
       await new Promise((r) => setTimeout(r, 300));
     }
-    setExportStatus("Done!");
+    setExportStatus(tl.statusDone);
     setExporting(false);
     setTimeout(() => setExportStatus(""), 2000);
   }, [exportSlide]);
 
+  const exportPdf = useCallback(async () => {
+    setExporting(true);
+    const isLandscape = canvasW > canvasH;
+    const orientation = isLandscape ? "landscape" : "portrait";
+    const { default: jsPDF } = await import("jspdf");
+    const pdf = new jsPDF({ orientation, unit: "px", format: [canvasW, canvasH], hotfixes: ["px_scaling"] });
+    const jpegOpts = { width: canvasW, height: canvasH, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
+
+    const tl = T[langRef.current];
+    for (let i = 0; i < SLIDES.length; i++) {
+      setExportStatus(tl.statusPdf(i + 1, SLIDES.length));
+      const el = offscreenRefs.current[i];
+      if (!el) continue;
+
+      el.style.opacity = "1";
+      el.style.zIndex = "-1";
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await toJpeg(el, jpegOpts); // warm up
+      await new Promise((r) => setTimeout(r, 120));
+      const dataUrl = await toJpeg(el, jpegOpts);
+      el.style.opacity = "0";
+      el.style.zIndex = "-1";
+
+      if (i > 0) pdf.addPage([canvasW, canvasH], orientation);
+      pdf.addImage(dataUrl, "JPEG", 0, 0, canvasW, canvasH);
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    pdf.save("slides.pdf");
+    setExportStatus(T[langRef.current].statusDone);
+    setExporting(false);
+    setTimeout(() => setExportStatus(""), 2000);
+  }, [preset.bg, canvasW, canvasH]);
+
   return (
+    <CanvasSizeContext.Provider value={{ w: canvasW, h: canvasH }}>
     <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
       {/* Toolbar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          marginBottom: 32,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
-            Threads Carousel
-          </h1>
-          <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-            {FORMAT_PRESETS[DEFAULT_FORMAT].name} — {CANVAS_W}×{CANVAS_H}
+      <div style={{ marginBottom: 32 }}>
+        {/* Title + Export + Lang toggle */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, textWrap: "balance" } as React.CSSProperties}>{t.appTitle}</h1>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+              {FORMAT_PRESETS[formatId].name} — {canvasW}×{canvasH}
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+            {/* Lang toggle */}
+            <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #333" }}>
+              {(["en", "ru"] as Lang[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className="tb-btn"
+                  style={{
+                    padding: "9px 12px",
+                    minHeight: 36,
+                    border: "none",
+                    background: lang === l ? "#555" : "transparent",
+                    color: lang === l ? "#fff" : "#888",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <button onClick={exportPdf} disabled={exporting} style={{ padding: "8px 20px", minWidth: 120, minHeight: 36, borderRadius: 8, border: "none", background: exporting ? "#444" : "#6366F1", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }} className="tb-btn">
+              {exporting ? exportStatus : t.btnPdf}
+            </button>
+            <button onClick={exportAll} disabled={exporting} style={{ padding: "8px 20px", minWidth: 110, minHeight: 36, borderRadius: 8, border: "none", background: exporting ? "#444" : "#22C55E", color: "#fff", cursor: exporting ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }} className="tb-btn">
+              {exporting ? exportStatus : t.btnAll}
+            </button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          {Object.values(PRESETS).map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setActivePreset(p.id)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: activePreset === p.id ? "2px solid #6366F1" : "1px solid #333",
-                background: activePreset === p.id ? "#6366F1" : "transparent",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
+        {/* 5-row axis toolbar — order: Format → Mode → Font → Color → Background */}
+        {/* key={lang} causes remount → tbFadeIn animation plays on language switch */}
+        <div key={lang} className="tb-lang-fade" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
-            <button
-              key={bg}
-              onClick={() => setBgType(bg)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: bgType === bg ? "2px solid #22C55E" : "1px solid #333",
-                background: bgType === bg ? "#22C55E" : "transparent",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 500,
-                textTransform: "capitalize",
-              }}
-            >
-              {bg}
-            </button>
-          ))}
-        </div>
+          {/* Format */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFormat}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Object.values(FORMAT_PRESETS).map((f) => (
+                <button key={f.id} onClick={() => setFormatId(f.id)} title={f.platform} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: formatId === f.id ? "2px solid #06B6D4" : "1px solid #333", background: formatId === f.id ? "#06B6D4" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <button
-          onClick={exportAll}
-          disabled={exporting}
-          style={{
-            padding: "8px 20px",
-            borderRadius: 8,
-            border: "none",
-            background: exporting ? "#444" : "#22C55E",
-            color: "#fff",
-            cursor: exporting ? "not-allowed" : "pointer",
-            fontSize: 14,
-            fontWeight: 600,
-            marginLeft: "auto",
-          }}
-        >
-          {exporting ? exportStatus : "Export All"}
-        </button>
+          {/* Mode */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowMode}</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["carousel", "presentation"] as PurposeId[]).map((p) => (
+                <button key={p} onClick={() => setPurposeId(p)} style={{ padding: "9px 14px", minWidth: 110, minHeight: 36, borderRadius: 8, border: purposeId === p ? "2px solid #F59E0B" : "1px solid #333", background: purposeId === p ? "#F59E0B" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
+                  {t.modes[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFont}</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {Object.values(FONT_STYLES).map((f) => (
+                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Color */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowColor}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Object.values(COLOR_THEMES).map((c) => (
+                <button key={c.id} onClick={() => setColorId(c.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333", background: colorId === c.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
+                  {t.colors[c.id]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Background */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowBg}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
+                <button key={bg} onClick={() => setBgType(bg)} style={{ padding: "9px 12px", minHeight: 36, borderRadius: 8, border: bgType === bg ? "2px solid #22C55E" : "1px solid #333", background: bgType === bg ? "#22C55E" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
+                  {t.bgs[bg]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
 
       {/* Preview Grid */}
@@ -1329,7 +1539,7 @@ export default function CarouselPage() {
           <div key={i}>
             <div
               onClick={() => !exporting && exportSlide(i)}
-              style={{ cursor: "pointer" }}
+              className="slide-card"
               title="Click to export this slide"
             >
               <SlidePreview
@@ -1346,6 +1556,7 @@ export default function CarouselPage() {
                 color: "#888",
                 marginTop: 8,
                 textAlign: "center",
+                fontVariantNumeric: "tabular-nums",
               }}
             >
               {i + 1}/{SLIDES.length} — {slide.type}
@@ -1365,8 +1576,8 @@ export default function CarouselPage() {
             position: "fixed",
             top: 0,
             left: 0,
-            width: CANVAS_W,
-            height: CANVAS_H,
+            width: canvasW,
+            height: canvasH,
             opacity: 0,
             pointerEvents: "none",
             zIndex: -1,
@@ -1386,8 +1597,9 @@ export default function CarouselPage() {
           textAlign: "center",
         }}
       >
-        {CANVAS_W}x{CANVAS_H}px — {SLIDES.length} slides — Click a slide to export individually
+        {t.footer(canvasW, canvasH, SLIDES.length)}
       </div>
     </div>
+    </CanvasSizeContext.Provider>
   );
 }

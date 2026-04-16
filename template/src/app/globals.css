@@ -13,3 +13,45 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Toolbar buttons — transitions + press scale */
+.tb-btn {
+  -webkit-user-select: none;
+  user-select: none;
+  transition-property: background, border-color, transform, color;
+  transition-duration: 0.12s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.tb-btn:active {
+  transform: scale(0.96);
+}
+
+/* Lang switch — toolbar rows fade+slide in when language changes (composite only) */
+@keyframes tbFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tb-lang-fade {
+  animation: tbFadeIn 0.18s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Slide preview card — hover lift (composite only) */
+.slide-card {
+  transition-property: transform;
+  transition-duration: 0.18s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  cursor: pointer;
+}
+.slide-card:hover {
+  transform: scale(1.025);
+}
+.slide-card:active {
+  transform: scale(0.98);
+}
+
+/* Preview wrapper — smooth aspect-ratio transition on format change (one-shot, small surface) */
+.slide-preview-wrapper {
+  transition-property: aspect-ratio;
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
