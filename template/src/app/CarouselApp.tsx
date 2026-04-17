@@ -19,6 +19,7 @@ function useCanvasSize() { return useContext(CanvasSizeContext); }
 function getAdaptiveFontSize(text: string, type: "hook" | "body"): number {
   const chars = text.replace(/\n/g, "").length;
   const lines = text.split("\n").length;
+  const maxLineLen = Math.max(...text.split("\n").map((l) => l.length));
 
   if (type === "hook") {
     let sizeByChars = 140;
@@ -32,7 +33,17 @@ function getAdaptiveFontSize(text: string, type: "hook" | "body"): number {
     else if (lines > 3) sizeByLines = 104;
     else if (lines > 2) sizeByLines = 124;
 
-    return Math.min(sizeByChars, sizeByLines);
+    // Unbounded bold is wide (Cyrillic more so) — cap by longest explicit line
+    // so long words don't overflow 920px content area (1080 − 80×2 padding).
+    let sizeByMaxLine = 140;
+    if (lines > 1) {
+      if (maxLineLen > 14) sizeByMaxLine = 72;
+      else if (maxLineLen > 12) sizeByMaxLine = 88;
+      else if (maxLineLen > 10) sizeByMaxLine = 100;
+      else if (maxLineLen > 8) sizeByMaxLine = 116;
+    }
+
+    return Math.min(sizeByChars, sizeByLines, sizeByMaxLine);
   }
 
   // body
@@ -1091,6 +1102,15 @@ function SlideComparison({
   total: number;
   bgType: BgType;
 }) {
+  const allItems = [...(data.leftItems || []), ...(data.rightItems || [])];
+  const maxItems = Math.max(data.leftItems?.length || 0, data.rightItems?.length || 0);
+  const maxItemLen = Math.max(0, ...allItems.map((i) => i.length));
+  let itemSize = 48;
+  if (maxItems >= 5 || maxItemLen > 48) itemSize = 34;
+  else if (maxItems >= 4 || maxItemLen > 36) itemSize = 40;
+  else if (maxItemLen > 26) itemSize = 44;
+  const labelSize = 40;
+
   return (
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       {data.title && (
@@ -1099,7 +1119,7 @@ function SlideComparison({
           <TitleDivider preset={preset} />
         </>
       )}
-      <div style={{ display: "flex", gap: 32, position: "relative", flex: 1, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 32, position: "relative", flex: 1, alignItems: "stretch" }}>
         {[
           { label: data.leftLabel || "", items: data.leftItems || [], color: "#EF4444" },
           { label: data.rightLabel || "", items: data.rightItems || [], color: "#22C55E" },
@@ -1111,7 +1131,7 @@ function SlideComparison({
               display: "flex",
               flexDirection: "column",
               gap: 20,
-              padding: 32,
+              padding: 36,
               border: `3px solid ${col.color}`,
               borderRadius: 16,
             }}
@@ -1119,12 +1139,12 @@ function SlideComparison({
             <div
               style={{
                 fontFamily: preset.fontFamily,
-                fontSize: 32,
+                fontSize: labelSize,
                 fontWeight: 800,
                 color: col.color,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                marginBottom: 12,
+                marginBottom: 16,
               }}
             >
               {col.label}
@@ -1133,7 +1153,7 @@ function SlideComparison({
               <div
                 key={i}
                 style={{
-                  fontSize: 30,
+                  fontSize: itemSize,
                   fontWeight: 500,
                   color: preset.textColor,
                   lineHeight: 1.25,
@@ -1352,7 +1372,7 @@ export default function CarouselPage() {
       el.style.zIndex = "-1";
       return dataUrl;
     },
-    [preset.bg]
+    [preset.bg, canvasW, canvasH]
   );
 
   const exportSlide = useCallback(
