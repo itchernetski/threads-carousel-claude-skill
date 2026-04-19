@@ -2,9 +2,9 @@
 
 import { useRef, useState, useCallback, useEffect, ReactNode, createContext, useContext } from "react";
 import { toPng, toJpeg } from "html-to-image";
-import type { SlideData, BgType, StylePreset, FontId, ColorThemeId, PurposeId, FormatId } from "../lib/types";
-import { FONT_STYLES, COLOR_THEMES, composePreset, FORMAT_PRESETS } from "../lib/presets";
-import { SLIDES, DEFAULT_FONT, DEFAULT_COLOR, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
+import type { SlideData, BgType, StylePreset, FontId, SurfaceId, AccentId, PurposeId, FormatId } from "../lib/types";
+import { FONT_STYLES, SURFACES, ACCENTS, composePreset, FORMAT_PRESETS } from "../lib/presets";
+import { SLIDES, DEFAULT_FONT, DEFAULT_SURFACE, DEFAULT_ACCENT, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
 
 const CANVAS_W = FORMAT_PRESETS[DEFAULT_FORMAT].w;
 const CANVAS_H = FORMAT_PRESETS[DEFAULT_FORMAT].h;
@@ -22,25 +22,25 @@ function getAdaptiveFontSize(text: string, type: "hook" | "body"): number {
   const maxLineLen = Math.max(...text.split("\n").map((l) => l.length));
 
   if (type === "hook") {
-    let sizeByChars = 140;
-    if (chars > 70) sizeByChars = 88;
-    else if (chars > 50) sizeByChars = 104;
-    else if (chars > 30) sizeByChars = 120;
-    else if (chars > 20) sizeByChars = 132;
+    let sizeByChars = 170;
+    if (chars > 70) sizeByChars = 104;
+    else if (chars > 50) sizeByChars = 120;
+    else if (chars > 30) sizeByChars = 140;
+    else if (chars > 20) sizeByChars = 156;
 
-    let sizeByLines = 140;
-    if (lines > 4) sizeByLines = 88;
-    else if (lines > 3) sizeByLines = 104;
-    else if (lines > 2) sizeByLines = 124;
+    let sizeByLines = 170;
+    if (lines > 4) sizeByLines = 104;
+    else if (lines > 3) sizeByLines = 120;
+    else if (lines > 2) sizeByLines = 144;
 
     // Unbounded bold is wide (Cyrillic more so) — cap by longest explicit line
     // so long words don't overflow 920px content area (1080 − 80×2 padding).
-    let sizeByMaxLine = 140;
+    let sizeByMaxLine = 170;
     if (lines > 1) {
-      if (maxLineLen > 14) sizeByMaxLine = 72;
-      else if (maxLineLen > 12) sizeByMaxLine = 88;
-      else if (maxLineLen > 10) sizeByMaxLine = 100;
-      else if (maxLineLen > 8) sizeByMaxLine = 116;
+      if (maxLineLen > 14) sizeByMaxLine = 88;
+      else if (maxLineLen > 12) sizeByMaxLine = 108;
+      else if (maxLineLen > 10) sizeByMaxLine = 124;
+      else if (maxLineLen > 8) sizeByMaxLine = 140;
     }
 
     return Math.min(sizeByChars, sizeByLines, sizeByMaxLine);
@@ -243,6 +243,42 @@ function LinesDecoration({ preset }: { preset: StylePreset }) {
   );
 }
 
+function PaperDecoration({ preset }: { preset: StylePreset }) {
+  const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
+  const { r, g, b } = hexToRgb(preset.textColor);
+  const lineColor = `rgba(${r},${g},${b},0.12)`;
+  const marginColor = `rgba(${r},${g},${b},0.22)`;
+  return (
+    <svg
+      width={CANVAS_W}
+      height={CANVAS_H}
+      style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
+    >
+      <defs>
+        <pattern id="ruledlines" width={CANVAS_W} height="64" patternUnits="userSpaceOnUse">
+          <line
+            x1="0"
+            y1="64"
+            x2={CANVAS_W}
+            y2="64"
+            stroke={lineColor}
+            strokeWidth="1.5"
+          />
+        </pattern>
+      </defs>
+      <rect width={CANVAS_W} height={CANVAS_H} fill="url(#ruledlines)" />
+      <line
+        x1="140"
+        y1="0"
+        x2="140"
+        y2={CANVAS_H}
+        stroke={marginColor}
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 function NoiseDecoration({ slideIndex }: { slideIndex: number }) {
   const { w: CANVAS_W, h: CANVAS_H } = useCanvasSize();
   const id = `noise-${slideIndex}`;
@@ -349,6 +385,8 @@ function SlideBackground({
       return <GridDecoration preset={preset} />;
     case "lines":
       return <LinesDecoration preset={preset} />;
+    case "paper":
+      return <PaperDecoration preset={preset} />;
     case "noise":
       return <NoiseDecoration slideIndex={slideIndex} />;
     case "bignumber":
@@ -368,26 +406,49 @@ function SlideBackground({
 function renderWithHighlight(
   text: string,
   highlight: string | undefined,
-  highlightColor: string
+  highlightColor: string,
+  style: "default" | "italic-box" = "default"
 ): ReactNode {
   if (!highlight) return text;
   const escaped = highlight.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
   const parts = text.split(new RegExp(`(${escaped})`, "gi"));
-  return parts.map((part, i) =>
-    part.toLowerCase() === highlight.toLowerCase() ? (
+  return parts.map((part, i) => {
+    if (part.toLowerCase() !== highlight.toLowerCase()) {
+      return <span key={i}>{part}</span>;
+    }
+    if (style === "italic-box") {
+      return (
+        <span
+          key={i}
+          style={{
+            fontFamily: "var(--font-playfair), Georgia, serif",
+            fontStyle: "italic",
+            fontWeight: 700,
+            background: highlightColor,
+            color: "#ffffff",
+            // no vertical padding — box matches line-box, horizontal breathing only
+            padding: "0 0.22em",
+            borderRadius: 6,
+            textTransform: "none",
+            letterSpacing: "-0.01em",
+            whiteSpace: "nowrap",
+            boxDecorationBreak: "clone",
+            WebkitBoxDecorationBreak: "clone",
+          }}
+        >
+          {part}
+        </span>
+      );
+    }
+    return (
       <span
         key={i}
-        style={{
-          color: highlightColor,
-          position: "relative",
-        }}
+        style={{ color: highlightColor, position: "relative" }}
       >
         {part}
       </span>
-    ) : (
-      <span key={i}>{part}</span>
-    )
-  );
+    );
+  });
 }
 
 function Badge({ text, preset }: { text: string; preset: StylePreset }) {
@@ -434,10 +495,12 @@ function SlideTitle({
   text,
   preset,
   highlight,
+  highlightStyle,
 }: {
   text: string;
   preset: StylePreset;
   highlight?: string;
+  highlightStyle?: "default" | "italic-box";
 }) {
   return (
     <div
@@ -454,7 +517,7 @@ function SlideTitle({
         textWrap: "balance" as const,
       }}
     >
-      {renderWithHighlight(text, highlight, preset.highlightColor)}
+      {renderWithHighlight(text, highlight, preset.highlightColor, highlightStyle)}
     </div>
   );
 }
@@ -537,14 +600,16 @@ function SlideHook({
           fontSize: getAdaptiveFontSize(data.text || "", "hook"),
           fontWeight: 800,
           color: preset.textColor,
-          lineHeight: 0.95,
+          // 1.08 instead of 0.95 — tight but leaves room for italic-box highlight
+          // on the next line without the colored rect clipping into prev line
+          lineHeight: data.highlightStyle === "italic-box" ? 1.15 : 1.02,
           whiteSpace: "pre-line",
           letterSpacing: "-0.03em",
           position: "relative",
           textWrap: "balance" as const,
         }}
       >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
+        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
       </div>
       <SlideCounter current={index} total={total} color={preset.accentColor} />
     </div>
@@ -618,7 +683,7 @@ function SlideBody({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} />
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
           <TitleDivider preset={preset} />
         </>
       )}
@@ -661,7 +726,7 @@ function SlideBody({
             textWrap: "balance" as const,
           }}
         >
-          {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
+          {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
         </div>
       )}
       {data.handle && (
@@ -745,7 +810,7 @@ function SlideList({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} />
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
           <TitleDivider preset={preset} />
         </>
       )}
@@ -810,7 +875,7 @@ function SlideStats({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} />
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
           <TitleDivider preset={preset} />
         </>
       )}
@@ -895,7 +960,7 @@ function SlideQuote({
           textWrap: "balance" as const,
         }}
       >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor)}
+        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
       </div>
       {data.author && (
         <div
@@ -942,7 +1007,7 @@ function SlideChecklist({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} />
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
           <TitleDivider preset={preset} />
         </>
       )}
@@ -1012,7 +1077,7 @@ function SlideProcess({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} />
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
           <TitleDivider preset={preset} />
         </>
       )}
@@ -1115,7 +1180,7 @@ function SlideComparison({
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} />
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
           <TitleDivider preset={preset} />
         </>
       )}
@@ -1169,6 +1234,229 @@ function SlideComparison({
   );
 }
 
+function SlideImage({
+  data,
+  preset,
+  index,
+  total,
+  bgType,
+}: {
+  data: SlideData;
+  preset: StylePreset;
+  index: number;
+  total: number;
+  bgType: BgType;
+}) {
+  return (
+    <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
+      {data.badge && <Badge text={data.badge} preset={preset} />}
+      {data.title && (
+        <>
+          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
+          <TitleDivider preset={preset} />
+        </>
+      )}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 32,
+          position: "relative",
+          minHeight: 0,
+        }}
+      >
+        {data.imageSrc && (
+          <img
+            src={data.imageSrc}
+            alt={data.imageCaption || data.title || "slide image"}
+            crossOrigin="anonymous"
+            style={{
+              maxWidth: "100%",
+              maxHeight: data.imageCaption ? "78%" : "88%",
+              objectFit: "contain",
+              borderRadius: 18,
+              boxShadow: "0 18px 60px rgba(0,0,0,0.22)",
+              display: "block",
+            }}
+          />
+        )}
+        {data.imageCaption && (
+          <div
+            style={{
+              fontFamily: preset.fontFamily,
+              fontSize: 40,
+              fontWeight: 500,
+              color: preset.textSecondary,
+              letterSpacing: "0.01em",
+              textAlign: "center",
+              lineHeight: 1.25,
+              textWrap: "balance" as const,
+            }}
+          >
+            {data.imageCaption}
+          </div>
+        )}
+      </div>
+    </SlideShell>
+  );
+}
+
+function SlideEmoji({
+  data,
+  preset,
+  index,
+  total,
+  bgType,
+}: {
+  data: SlideData;
+  preset: StylePreset;
+  index: number;
+  total: number;
+  bgType: BgType;
+}) {
+  return (
+    <SlideShell preset={preset} index={index} total={total} bgType={bgType} center>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+          position: "relative",
+        }}
+      >
+        {data.emoji && (
+          <div
+            style={{
+              fontSize: 360,
+              lineHeight: 1,
+              marginBottom: 48,
+              // deliberately no fontFamily — let OS emoji font render in color
+            }}
+          >
+            {data.emoji}
+          </div>
+        )}
+        {data.title && (
+          <div
+            style={{
+              fontFamily: preset.fontFamily,
+              fontSize: preset.titleFontSize ?? 72,
+              fontWeight: preset.titleFontWeight ?? 800,
+              color: preset.titleColor ?? preset.textColor,
+              textTransform: (preset.titleUppercase ?? true) ? "uppercase" : "none",
+              letterSpacing: (preset.titleUppercase ?? true) ? "0.04em" : "-0.02em",
+              lineHeight: 1.1,
+              marginBottom: data.text ? 20 : 0,
+              textWrap: "balance" as const,
+            }}
+          >
+            {renderWithHighlight(data.title, data.highlight, preset.highlightColor, data.highlightStyle)}
+          </div>
+        )}
+        {data.text && (
+          <div
+            style={{
+              fontFamily: preset.fontFamily,
+              fontSize: 56,
+              fontWeight: 500,
+              color: preset.textSecondary,
+              lineHeight: 1.25,
+              maxWidth: "88%",
+              textWrap: "balance" as const,
+              whiteSpace: "pre-line",
+            }}
+          >
+            {data.text}
+          </div>
+        )}
+      </div>
+    </SlideShell>
+  );
+}
+
+function SlideNumber({
+  data,
+  preset,
+  index,
+  total,
+  bgType,
+}: {
+  data: SlideData;
+  preset: StylePreset;
+  index: number;
+  total: number;
+  bgType: BgType;
+}) {
+  const num = data.bigNumber || "";
+  const size = num.length <= 2 ? 560 : num.length <= 4 ? 420 : 320;
+  return (
+    <SlideShell preset={preset} index={index} total={total} bgType={bgType} center>
+      {data.badge && <Badge text={data.badge} preset={preset} />}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: preset.hookFontFamily || preset.fontFamily,
+            fontSize: size,
+            fontWeight: 900,
+            color: preset.highlightColor,
+            lineHeight: 0.9,
+            letterSpacing: "-0.05em",
+            marginBottom: 24,
+          }}
+        >
+          {num}
+        </div>
+        {data.title && (
+          <div
+            style={{
+              fontFamily: preset.fontFamily,
+              fontSize: 64,
+              fontWeight: 800,
+              color: preset.textColor,
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+              textWrap: "balance" as const,
+              marginBottom: data.text ? 16 : 0,
+            }}
+          >
+            {renderWithHighlight(data.title, data.highlight, preset.highlightColor, data.highlightStyle)}
+          </div>
+        )}
+        {data.text && (
+          <div
+            style={{
+              fontFamily: preset.fontFamily,
+              fontSize: 48,
+              fontWeight: 500,
+              color: preset.textSecondary,
+              lineHeight: 1.25,
+              whiteSpace: "pre-line",
+              textWrap: "balance" as const,
+            }}
+          >
+            {data.text}
+          </div>
+        )}
+      </div>
+    </SlideShell>
+  );
+}
+
 function Slide({
   data,
   preset,
@@ -1197,6 +1485,12 @@ function Slide({
       return <SlideProcess data={data} preset={preset} index={index} total={total} bgType={bgType} />;
     case "comparison":
       return <SlideComparison data={data} preset={preset} index={index} total={total} bgType={bgType} />;
+    case "image":
+      return <SlideImage data={data} preset={preset} index={index} total={total} bgType={bgType} />;
+    case "emoji":
+      return <SlideEmoji data={data} preset={preset} index={index} total={total} bgType={bgType} />;
+    case "number":
+      return <SlideNumber data={data} preset={preset} index={index} total={total} bgType={bgType} />;
     case "body":
     case "cta":
     default:
@@ -1277,7 +1571,8 @@ const T = {
   en: {
     appTitle: "Threads Carousel",
     rowFont: "Font",
-    rowColor: "Color",
+    rowSurface: "Surface",
+    rowAccent: "Accent",
     rowBg: "Background",
     rowMode: "Mode",
     rowFormat: "Format",
@@ -1291,18 +1586,24 @@ const T = {
     modes: { carousel: "Carousel", presentation: "Presentation" } as Record<PurposeId, string>,
     bgs: {
       none: "None", blobs: "Blobs", grid: "Grid", lines: "Lines",
-      noise: "Noise", bignumber: "Bignumber", glow: "Glow",
+      noise: "Noise", bignumber: "Bignumber", glow: "Glow", paper: "Ruled",
     } as Record<BgType, string>,
-    colors: {
-      dark: "Dark", light: "Light", paper: "Paper", white: "White",
-      gradient: "Gradient", pastel: "Pastel", neon: "Neon", custom: "Custom",
-    } as Record<ColorThemeId, string>,
+    surfaces: {
+      dark: "Dark", white: "White", light: "Light", paper: "Paper",
+      gradient: "Gradient", pastel: "Pastel", neon: "Neon", ember: "Ember",
+    } as Record<SurfaceId, string>,
+    accents: {
+      yellow: "Yellow", red: "Red", teal: "Teal", coral: "Coral",
+      orange: "Orange", violet: "Violet", lime: "Lime", blue: "Blue",
+      fuchsia: "Fuchsia", pink: "Pink", amber: "Amber",
+    } as Record<AccentId, string>,
   },
   ru: {
     appTitle: "Threads Carousel",
     rowFont: "Шрифт",
-    rowColor: "Цвет",
-    rowBg: "Фон",
+    rowSurface: "Фон",
+    rowAccent: "Акцент",
+    rowBg: "Декор",
     rowMode: "Режим",
     rowFormat: "Формат",
     btnPdf: "PDF",
@@ -1315,12 +1616,17 @@ const T = {
     modes: { carousel: "Карусель", presentation: "Презентация" } as Record<PurposeId, string>,
     bgs: {
       none: "Нет", blobs: "Пятна", grid: "Сетка", lines: "Линии",
-      noise: "Шум", bignumber: "Номер", glow: "Свечение",
+      noise: "Шум", bignumber: "Номер", glow: "Свечение", paper: "Линейка",
     } as Record<BgType, string>,
-    colors: {
-      dark: "Тёмный", light: "Светлый", paper: "Бумага", white: "Белый",
-      gradient: "Градиент", pastel: "Пастель", neon: "Неон", custom: "Свой",
-    } as Record<ColorThemeId, string>,
+    surfaces: {
+      dark: "Тёмный", white: "Белый", light: "Светлый", paper: "Бумага",
+      gradient: "Градиент", pastel: "Пастель", neon: "Неон", ember: "Уголь",
+    } as Record<SurfaceId, string>,
+    accents: {
+      yellow: "Жёлтый", red: "Красный", teal: "Бирюза", coral: "Коралл",
+      orange: "Оранж", violet: "Фиолет", lime: "Лайм", blue: "Синий",
+      fuchsia: "Фуксия", pink: "Розовый", amber: "Янтарь",
+    } as Record<AccentId, string>,
   },
 } as const;
 
@@ -1332,7 +1638,8 @@ export default function CarouselPage() {
   const [lang, setLang] = useState<Lang>("ru");
   const t = T[lang];
   const [fontId, setFontId] = useState<FontId>(DEFAULT_FONT);
-  const [colorId, setColorId] = useState<ColorThemeId>(DEFAULT_COLOR);
+  const [surfaceId, setSurfaceId] = useState<SurfaceId>(DEFAULT_SURFACE);
+  const [accentId, setAccentId] = useState<AccentId>(DEFAULT_ACCENT);
   const [purposeId, setPurposeId] = useState<PurposeId>(DEFAULT_PURPOSE);
   const [formatId, setFormatId] = useState<FormatId>(DEFAULT_FORMAT);
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
@@ -1344,7 +1651,7 @@ export default function CarouselPage() {
 
   const canvasW = FORMAT_PRESETS[formatId].w;
   const canvasH = FORMAT_PRESETS[formatId].h;
-  const preset = composePreset(FONT_STYLES[fontId], COLOR_THEMES[colorId], purposeId);
+  const preset = composePreset(FONT_STYLES[fontId], SURFACES[surfaceId], ACCENTS[accentId], purposeId);
 
   const captureSlide = useCallback(
     async (index: number): Promise<string | null> => {
@@ -1520,13 +1827,41 @@ export default function CarouselPage() {
             </div>
           </div>
 
-          {/* Color */}
+          {/* Surface (bg + text) */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowColor}</span>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowSurface}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {Object.values(COLOR_THEMES).map((c) => (
-                <button key={c.id} onClick={() => setColorId(c.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: colorId === c.id ? "2px solid #6366F1" : "1px solid #333", background: colorId === c.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
-                  {t.colors[c.id]}
+              {Object.values(SURFACES).map((s) => (
+                <button key={s.id} onClick={() => setSurfaceId(s.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: surfaceId === s.id ? "2px solid #6366F1" : "1px solid #333", background: surfaceId === s.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
+                  {t.surfaces[s.id]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Accent (pop color) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowAccent}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {Object.values(ACCENTS).map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setAccentId(a.id)}
+                  title={t.accents[a.id]}
+                  style={{
+                    padding: "9px 14px",
+                    minHeight: 36,
+                    borderRadius: 8,
+                    border: accentId === a.id ? `2px solid ${a.color}` : "1px solid #333",
+                    background: accentId === a.id ? a.color : "transparent",
+                    color: accentId === a.id ? "#000" : "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                  className="tb-btn"
+                >
+                  {t.accents[a.id]}
                 </button>
               ))}
             </div>
@@ -1536,7 +1871,7 @@ export default function CarouselPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowBg}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(["none", "blobs", "grid", "lines", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
+              {(["none", "blobs", "grid", "lines", "paper", "noise", "bignumber", "glow"] as BgType[]).map((bg) => (
                 <button key={bg} onClick={() => setBgType(bg)} style={{ padding: "9px 12px", minHeight: 36, borderRadius: 8, border: bgType === bg ? "2px solid #22C55E" : "1px solid #333", background: bgType === bg ? "#22C55E" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
                   {t.bgs[bg]}
                 </button>

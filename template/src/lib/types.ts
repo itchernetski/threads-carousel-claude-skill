@@ -13,7 +13,10 @@ export type SlideType =
   | "list"
   | "checklist"
   | "process"
-  | "comparison";
+  | "comparison"
+  | "image"
+  | "emoji"
+  | "number";
 
 export type BgType =
   | "none"
@@ -22,7 +25,8 @@ export type BgType =
   | "lines"
   | "noise"
   | "bignumber"
-  | "glow";
+  | "glow"
+  | "paper";
 
 export type FormatId =
   | "threads-4x5"
@@ -35,18 +39,32 @@ export type FormatId =
 // ---- Three independent style axes ----
 
 /** Font / typeface selection */
-export type FontId = "minimal" | "editorial" | "clean";
+export type FontId = "minimal" | "editorial" | "clean" | "mono" | "condensed";
 
-/** Color palette selection */
-export type ColorThemeId =
+/** Surface — bg + text neutrals (no pop color). */
+export type SurfaceId =
   | "dark"
+  | "white"
   | "light"
   | "paper"
-  | "white"
   | "gradient"
   | "pastel"
   | "neon"
-  | "custom";
+  | "ember";
+
+/** Accent — the pop color used for highlighted words. */
+export type AccentId =
+  | "yellow"
+  | "red"
+  | "teal"
+  | "coral"
+  | "orange"
+  | "violet"
+  | "lime"
+  | "blue"
+  | "fuchsia"
+  | "pink"
+  | "amber";
 
 /** Layout purpose — drives typography scale */
 export type PurposeId = "carousel" | "presentation";
@@ -58,15 +76,22 @@ export interface FontStyle {
   hookFontFamily?: string;
 }
 
-export interface ColorTheme {
-  id: ColorThemeId;
+export interface Surface {
+  id: SurfaceId;
   name: string;
   bg: string;
   bgGradient?: string;
   textColor: string;
   textSecondary: string;
+  /** Color used for titles, dividers, badges. For most surfaces equals textColor. */
   accentColor: string;
-  highlightColor: string;
+}
+
+export interface Accent {
+  id: AccentId;
+  name: string;
+  /** Color used for highlighted words. */
+  color: string;
 }
 
 // ---- Slide data ----
@@ -94,6 +119,15 @@ export interface SlideData {
   rightItems?: string[];
   // icon points (plus/minus list with SVG icons)
   points?: Array<{ type: "plus" | "minus"; text: string }>;
+  // image slide — put file into /public/images/ and reference as "/images/file.png"
+  imageSrc?: string;
+  imageCaption?: string;
+  // emoji slide — single grapheme rendered large
+  emoji?: string;
+  // number slide — big hero number/string like "17", "5K+", "№1"
+  bigNumber?: string;
+  // highlight variant — "italic-box" renders highlighted word in Playfair italic on colored box
+  highlightStyle?: "default" | "italic-box";
 }
 
 // ---- Internal composed type used by all slide components ----

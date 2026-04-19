@@ -15,36 +15,57 @@ import type {
   FormatId,
   FontId,
   FontStyle,
-  ColorThemeId,
-  ColorTheme,
+  SurfaceId,
+  Surface,
+  AccentId,
+  Accent,
   PurposeId,
 } from "./types";
 
 // ---- Font styles ----
 
 export const FONT_STYLES: Record<FontId, FontStyle> = {
+  // Geometric display — bold, rounded, distinctive. Unbounded everywhere.
   minimal: {
     id: "minimal",
     name: "Minimal",
-    fontFamily: "var(--font-space-grotesk), var(--font-inter)",
+    fontFamily: "var(--font-unbounded)",
     hookFontFamily: "var(--font-unbounded)",
   },
+  // Classic serif — Playfair for both headings and body.
   editorial: {
     id: "editorial",
     name: "Editorial",
     fontFamily: "var(--font-playfair)",
     hookFontFamily: "var(--font-playfair)",
   },
+  // Neutral sans-serif — pure Inter throughout. The most "standard" look.
   clean: {
     id: "clean",
     name: "Clean",
     fontFamily: "var(--font-inter)",
+    hookFontFamily: "var(--font-inter)",
+  },
+  // Monospace technical — JetBrains Mono. Tech/dev feel.
+  mono: {
+    id: "mono",
+    name: "Mono",
+    fontFamily: "var(--font-jetbrains-mono)",
+    hookFontFamily: "var(--font-jetbrains-mono)",
+  },
+  // Narrow tall condensed — Oswald. Editorial-poster feel.
+  condensed: {
+    id: "condensed",
+    name: "Condensed",
+    fontFamily: "var(--font-oswald)",
+    hookFontFamily: "var(--font-oswald)",
   },
 };
 
 // ---- Color themes ----
 
-export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
+// ---- Surfaces: bg + text neutrals (no pop color) ----
+export const SURFACES: Record<SurfaceId, Surface> = {
   dark: {
     id: "dark",
     name: "Dark",
@@ -52,34 +73,32 @@ export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
     textColor: "#FFFFFF",
     textSecondary: "rgba(255,255,255,0.5)",
     accentColor: "#FFFFFF",
-    highlightColor: "#FACC15",
-  },
-  light: {
-    id: "light",
-    name: "Light",
-    bg: "#FAFAFA",
-    textColor: "#1A1A1A",
-    textSecondary: "rgba(0,0,0,0.4)",
-    accentColor: "#1A1A1A",
-    highlightColor: "#DC2626",
-  },
-  paper: {
-    id: "paper",
-    name: "Paper",
-    bg: "#F5F0E8",
-    textColor: "#2C2416",
-    textSecondary: "rgba(44,36,22,0.5)",
-    accentColor: "#8B7355",
-    highlightColor: "#B91C1C",
   },
   white: {
     id: "white",
     name: "White",
     bg: "#FFFFFF",
-    textColor: "#111111",
-    textSecondary: "rgba(0,0,0,0.35)",
-    accentColor: "#111111",
-    highlightColor: "#E11D48",
+    textColor: "#0B0B0B",
+    textSecondary: "rgba(0,0,0,0.4)",
+    accentColor: "#0B0B0B",
+  },
+  // Cool zinc grey — neutral, editorial, Vercel-like. Distinctly cool.
+  light: {
+    id: "light",
+    name: "Light",
+    bg: "#F4F4F5",
+    textColor: "#18181B",
+    textSecondary: "rgba(24,24,27,0.5)",
+    accentColor: "#18181B",
+  },
+  // Notebook cream — pushed further into yellow. Distinctly warm.
+  paper: {
+    id: "paper",
+    name: "Paper",
+    bg: "#ECE2C8",
+    textColor: "#3A2F1C",
+    textSecondary: "rgba(58,47,28,0.55)",
+    accentColor: "#78350F",
   },
   gradient: {
     id: "gradient",
@@ -90,7 +109,6 @@ export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
     textColor: "#FFFFFF",
     textSecondary: "rgba(255,255,255,0.7)",
     accentColor: "#FFFFFF",
-    highlightColor: "#FDE047",
   },
   pastel: {
     id: "pastel",
@@ -99,7 +117,6 @@ export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
     textColor: "#1E1B4B",
     textSecondary: "rgba(30,27,75,0.45)",
     accentColor: "#6D28D9",
-    highlightColor: "#C026D3",
   },
   neon: {
     id: "neon",
@@ -109,35 +126,57 @@ export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
     textColor: "#E0F2FE",
     textSecondary: "rgba(224,242,254,0.4)",
     accentColor: "#06B6D4",
-    highlightColor: "#A855F7",
   },
-  custom: {
-    id: "custom",
-    name: "Custom",
+  // Black→red radial — dramatic dark surface (inspired by ref 7).
+  ember: {
+    id: "ember",
+    name: "Ember",
     bg: "#0A0A0A",
-    textColor: "#FFFFFF",
-    textSecondary: "rgba(255,255,255,0.5)",
-    accentColor: "#6366F1",
-    highlightColor: "#FACC15",
+    bgGradient: "radial-gradient(circle at 30% 20%, #8B0000 0%, #1A0606 45%, #0A0A0A 100%)",
+    textColor: "#F5F5F4",
+    textSecondary: "rgba(245,245,244,0.55)",
+    accentColor: "#F5F5F4",
   },
 };
 
-// ---- Compose a StylePreset from the three axes ----
+// ---- Accents: the pop color used for highlighted words ----
+export const ACCENTS: Record<AccentId, Accent> = {
+  yellow:  { id: "yellow",  name: "Yellow",  color: "#FACC15" },
+  red:     { id: "red",     name: "Red",     color: "#DC2626" },
+  teal:    { id: "teal",    name: "Teal",    color: "#14B8A6" },
+  // Pink-family coral (Pantone Living Coral 2019 inspired) — NOT orange-leaning.
+  coral:   { id: "coral",   name: "Coral",   color: "#FB7185" },
+  // Bright pumpkin orange — clearly distinct from coral.
+  orange:  { id: "orange",  name: "Orange",  color: "#F97316" },
+  violet:  { id: "violet",  name: "Violet",  color: "#A78BFA" },
+  lime:    { id: "lime",    name: "Lime",    color: "#D9F056" },
+  // Classic brand blue — high contrast, fills the biggest palette gap.
+  blue:    { id: "blue",    name: "Blue",    color: "#3B82F6" },
+  // Magenta/fuchsia — pairs beautifully with pastel lilac surface.
+  fuchsia: { id: "fuchsia", name: "Fuchsia", color: "#C026D3" },
+  // Hot pink — central stop of the gradient surface, pairs well with it.
+  pink:    { id: "pink",    name: "Pink",    color: "#EC4899" },
+  // Golden amber — final stop of the gradient; pops against its purple/pink sections.
+  amber:   { id: "amber",   name: "Amber",   color: "#F59E0B" },
+};
+
+// ---- Compose a StylePreset from the four axes ----
 
 export function composePreset(
   font: FontStyle,
-  color: ColorTheme,
+  surface: Surface,
+  accent: Accent,
   purpose: PurposeId
 ): StylePreset {
   const base: StylePreset = {
-    id: `${font.id}-${color.id}`,
-    name: `${font.name} / ${color.name}`,
-    bg: color.bg,
-    bgGradient: color.bgGradient,
-    textColor: color.textColor,
-    textSecondary: color.textSecondary,
-    accentColor: color.accentColor,
-    highlightColor: color.highlightColor,
+    id: `${font.id}-${surface.id}-${accent.id}`,
+    name: `${font.name} / ${surface.name} / ${accent.name}`,
+    bg: surface.bg,
+    bgGradient: surface.bgGradient,
+    textColor: surface.textColor,
+    textSecondary: surface.textSecondary,
+    accentColor: surface.accentColor,
+    highlightColor: accent.color,
     fontFamily: font.fontFamily,
     hookFontFamily: font.hookFontFamily,
   };
@@ -150,7 +189,7 @@ export function composePreset(
       titleUppercase: false,
       titleDivider: false,
       bodyFontWeight: 400,
-      bodyColor: color.textSecondary,
+      bodyColor: surface.textSecondary,
       bodyLineHeight: 1.45,
     };
   }

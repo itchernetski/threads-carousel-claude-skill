@@ -50,3 +50,9 @@ exports/
 
 # Temp work dirs
 /tmp/
+
+# Локальные рабочие материалы (черновики, заметки, тестовые посты)
+/workspace/
+
+# TypeScript build info
+*.tsbuildinfo
