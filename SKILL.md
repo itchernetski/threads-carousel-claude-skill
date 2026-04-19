@@ -3,14 +3,14 @@ name: threads-carousel
 user_invocable: true
 description: >
   Convert text posts into visual carousel images or presentations for Threads, Instagram, LinkedIn, TikTok, YouTube.
-  10 slide types, 6 format presets (incl. 1920×1080 wide), 7 background styles, 3-axis style system (font × color × purpose), highlighted keywords.
+  12 slide types (incl. image/emoji/number), 6 format presets (incl. 1920×1080 wide), 8 background styles (incl. ruled paper), 3-axis style system (font × color × purpose), highlighted keywords with optional italic-box style.
   Generates PNG or single-file PDF via Next.js preview + browser export. RU/EN toolbar.
   Triggers: threads carousel, instagram carousel, linkedin carousel, tiktok carousel, карусель, slides, carousel images, presentation deck, presentation pdf.
 ---
 
 # Threads Carousel Generator
 
-Converts a text post into a set of visual carousel slides for Threads, Instagram, LinkedIn, TikTok, Stories, YouTube, or a standalone presentation deck. Composable design system with three independent style axes (font × color × purpose) and 10 slide types.
+Converts a text post into a set of visual carousel slides for Threads, Instagram, LinkedIn, TikTok, Stories, YouTube, or a standalone presentation deck. Composable design system with three independent style axes (font × color × purpose) and 12 slide types.
 
 ## Invocation
 
@@ -30,7 +30,7 @@ Converts a text post into a set of visual carousel slides for Threads, Instagram
 | `story-9x16` | 1080×1920 | Instagram Stories, Threads Stories |
 | `wide-16x9` | 1920×1080 | Presentations, YouTube, desktop decks |
 
-## Slide types (10)
+## Slide types (12)
 
 | Type | Purpose | Required fields |
 |---|---|---|
@@ -44,14 +44,28 @@ Converts a text post into a set of visual carousel slides for Threads, Instagram
 | `process` | Numbered steps with connector line | `title`, `steps[]` |
 | `comparison` | Two-column VS / before-after | `leftLabel`, `leftItems[]`, `rightLabel`, `rightItems[]` |
 | `cta` | Final call to action | `text`, `handle` |
+| `image` | Title + screenshot/photo + optional caption | `imageSrc`, optional `title`, `imageCaption` |
+| `emoji` | Giant emoji illustration + title + text | `emoji`, optional `title`, `text` |
+| `number` | Huge hero number/string + title + text | `bigNumber`, optional `title`, `text` |
 
 `points` shape: `Array<{ type: "plus" | "minus"; text: string }>` — green ✓ for plus, muted ✗ for minus. Adaptive sizing (44–62px) based on item count and longest line.
 
 All types also support optional:
 - `badge` — small outlined tag above title (e.g. `"01"`, `"TIP"`)
 - `highlight` — a word or phrase within `text`/`title` that will be colored in the preset's highlight color (yellow for dark themes)
+- `highlightStyle: "italic-box"` — renders the highlighted word in Playfair italic on a colored rectangle (instead of plain color)
 
-## Background decorations (7 types)
+### Images in slides
+
+`image` slides expect `imageSrc` as a path served by Next.js under `/public/`. Workflow when a user gives you a local file:
+
+1. User drops a file path like `/Users/me/Desktop/screenshot.png` (or passes a file via the chat).
+2. Copy it into `template/public/images/` with a safe, lowercase filename — e.g. `cp "$USER_PATH" template/public/images/screenshot.png`.
+3. In `slides.ts` reference it as `imageSrc: "/images/screenshot.png"` (absolute from `/public/`).
+
+Same-origin serving avoids CORS errors in the PNG export pipeline. Do not use external URLs — `html-to-image` will often blank them out.
+
+## Background decorations (8 types)
 
 Switchable via toolbar in preview. Default: `glow`.
 
@@ -61,6 +75,7 @@ Switchable via toolbar in preview. Default: `glow`.
 | `blobs` | Organic colored shapes |
 | `grid` | Dotted grid pattern |
 | `lines` | Diagonal line pattern |
+| `paper` | Ruled notebook lines + left margin (use with `paper`/`light`/`white` colors for a literary feel) |
 | `noise` | SVG grain overlay (overlay blend) |
 | `bignumber` | Giant slide index as watermark (01, 02…) |
 | `glow` *(default)* | Soft radial gradient in alternating corners |
@@ -69,26 +84,53 @@ Switchable via toolbar in preview. Default: `glow`.
 
 The final style is composed at runtime from three axes via `composePreset(font, color, purpose)`:
 
-**Font axis** (`DEFAULT_FONT`):
+**Font axis** (`DEFAULT_FONT`), 5 typefaces:
 
-| Id | Body font | Hook font |
+| Id | Font | Feel |
 |---|---|---|
-| `minimal` *(default)* | Space Grotesk + Inter fallback | Unbounded |
-| `editorial` | Playfair Display | Playfair Display |
-| `clean` | Inter | (falls back to body) |
+| `minimal` *(default)* | Unbounded (body + hook) | Geometric display, bold, distinctive |
+| `editorial` | Playfair Display | Classic serif, literary |
+| `clean` | Inter | Neutral sans-serif, most standard |
+| `mono` | JetBrains Mono | Monospace, tech/dev feel |
+| `condensed` | Oswald | Narrow + tall, editorial poster |
 
-**Color axis** (`DEFAULT_COLOR`), 8 palettes:
+**Surface axis** (`DEFAULT_SURFACE`) — bg + text neutrals, 8 options:
 
-| Id | Feel |
-|---|---|
-| `dark` *(default)* | `#0A0A0A` bg, white text, yellow highlight |
-| `light` | `#FAFAFA` bg, dark text, red highlight |
-| `paper` | cream bg, warm text, literary |
-| `white` | pure white bg, near-black text, rose highlight |
-| `gradient` | purple→pink→amber gradient, white text |
-| `pastel` | lilac bg, purple accents |
-| `neon` | near-black bg, cyan + violet accents |
-| `custom` | editable hex colors |
+| Id | Bg | Text | Feel |
+|---|---|---|---|
+| `dark` *(default)* | `#0A0A0A` | white | default bold |
+| `white` | pure `#FFFFFF` | near-black | sharp clinical, Apple-style |
+| `light` | cool zinc `#F4F4F5` | near-black | neutral cool grey, Vercel-style |
+| `paper` | cream `#ECE2C8` | warm brown | notebook / literary warm |
+| `gradient` | purple→pink→amber | white | bright gradient |
+| `pastel` | lilac `#EDE9FE` | indigo | soft |
+| `neon` | dark gradient | light cyan | tech dark |
+| `ember` | black→red radial | near-white | dramatic |
+
+**Accent axis** (`DEFAULT_ACCENT`) — pop color for highlighted words, 8 options:
+
+| Id | Hex | Matches surfaces |
+|---|---|---|
+| `yellow` *(default)* | `#FACC15` | dark, ember |
+| `red` | `#DC2626` | pure red — white, light, paper |
+| `teal` | `#14B8A6` | versatile — dark, white, light, paper |
+| `coral` | `#FB7185` | pink-family — paper, light, white |
+| `orange` | `#F97316` | pumpkin — paper, light, dark |
+| `violet` | `#A78BFA` | dark, neon, ember |
+| `lime` | `#D9F056` | ember, dark |
+| `blue` | `#3B82F6` | white, light, paper, dark |
+| `fuchsia` | `#C026D3` | pastel, white, dark |
+| `pink` | `#EC4899` | pastel, dark, light |
+| `amber` | `#F59E0B` | gradient, dark, paper |
+
+Total combinations: 8 surfaces × 8 accents × 5 fonts × 2 purposes = **640 valid styles**. Pick surface for neutral base, accent for pop color — independently.
+
+**Reference combos** (inspired by design refs):
+- `dark + teal` — noir / minimalist tech
+- `paper + orange` — literary warm
+- `ember + lime` — dramatic announcement
+- `white + coral` — sharp editorial
+- `light + teal` — calm informational
 
 **Purpose axis** (`DEFAULT_PURPOSE`):
 
