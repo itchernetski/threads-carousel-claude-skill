@@ -39,7 +39,7 @@ export type FormatId =
 // ---- Three independent style axes ----
 
 /** Font / typeface selection */
-export type FontId = "minimal" | "editorial" | "clean" | "mono" | "condensed";
+export type FontId = "minimal" | "editorial" | "clean" | "mono" | "condensed" | "manrope";
 
 /** Surface — bg + text neutrals (no pop color). */
 export type SurfaceId =
@@ -72,6 +72,8 @@ export type PurposeId = "carousel" | "presentation";
 export interface FontStyle {
   id: FontId;
   name: string;
+  /** Actual typeface name shown in the picker button, rendered in its own font */
+  displayName: string;
   fontFamily: string;
   hookFontFamily?: string;
 }
@@ -101,7 +103,14 @@ export interface SlideData {
   text?: string;
   title?: string;
   badge?: string;
+  /** @deprecated use highlights[] instead */
   highlight?: string;
+  /** Multiple highlight words — shown in accent color */
+  highlights?: string[];
+  /** Override title all-caps per slide (carousel purpose defaults to true) */
+  uppercase?: boolean;
+  /** Override title divider line per slide */
+  divider?: boolean;
   handle?: string;
   // quote
   author?: string;

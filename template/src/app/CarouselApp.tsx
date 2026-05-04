@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect, ReactNode, createContext, useContext } from "react";
 import { toPng, toJpeg } from "html-to-image";
-import type { SlideData, BgType, StylePreset, FontId, SurfaceId, AccentId, PurposeId, FormatId } from "../lib/types";
+import type { SlideData, SlideType, BgType, StylePreset, FontId, SurfaceId, AccentId, PurposeId, FormatId } from "../lib/types";
 import { FONT_STYLES, SURFACES, ACCENTS, composePreset, FORMAT_PRESETS } from "../lib/presets";
 import { SLIDES, DEFAULT_FONT, DEFAULT_SURFACE, DEFAULT_ACCENT, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
 
@@ -403,19 +403,24 @@ function SlideBackground({
 // HELPERS — badge, highlight, text balance
 // ============================================================
 
+function getHighlights(data: SlideData): string[] {
+  if (data.highlights && data.highlights.length > 0) return data.highlights;
+  if (data.highlight) return [data.highlight];
+  return [];
+}
+
 function renderWithHighlight(
   text: string,
-  highlight: string | undefined,
+  highlights: string[],
   highlightColor: string,
   style: "default" | "italic-box" = "default"
 ): ReactNode {
-  if (!highlight) return text;
-  const escaped = highlight.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
-  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  if (!highlights.length) return text;
+  const escaped = highlights.map(h => h.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"));
+  const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
   return parts.map((part, i) => {
-    if (part.toLowerCase() !== highlight.toLowerCase()) {
-      return <span key={i}>{part}</span>;
-    }
+    const isHighlight = highlights.some(h => part.toLowerCase() === h.toLowerCase());
+    if (!isHighlight) return <span key={i}>{part}</span>;
     if (style === "italic-box") {
       return (
         <span
@@ -426,7 +431,6 @@ function renderWithHighlight(
             fontWeight: 700,
             background: highlightColor,
             color: "#ffffff",
-            // no vertical padding — box matches line-box, horizontal breathing only
             padding: "0 0.22em",
             borderRadius: 6,
             textTransform: "none",
@@ -440,14 +444,7 @@ function renderWithHighlight(
         </span>
       );
     }
-    return (
-      <span
-        key={i}
-        style={{ color: highlightColor, position: "relative" }}
-      >
-        {part}
-      </span>
-    );
+    return <span key={i} style={{ color: highlightColor, position: "relative" }}>{part}</span>;
   });
 }
 
@@ -475,8 +472,41 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
   );
 }
 
-function TitleDivider({ preset }: { preset: StylePreset }) {
-  if (preset.titleDivider === false) return null;
+function SlideTitle({
+  text,
+  preset,
+  highlights,
+  uppercase,
+}: {
+  text: string;
+  preset: StylePreset;
+  highlights?: string[];
+  uppercase?: boolean;
+}) {
+  const isUppercase = uppercase !== undefined ? uppercase : (preset.titleUppercase ?? true);
+  return (
+    <div
+      style={{
+        fontFamily: preset.fontFamily,
+        fontSize: preset.titleFontSize ?? 44,
+        fontWeight: preset.titleFontWeight ?? 800,
+        color: preset.titleColor ?? preset.accentColor,
+        textTransform: isUppercase ? "uppercase" : "none",
+        letterSpacing: isUppercase ? "0.06em" : "-0.02em",
+        lineHeight: 1.1,
+        marginBottom: 28,
+        position: "relative",
+        textWrap: "balance" as const,
+      }}
+    >
+      {renderWithHighlight(text, highlights ?? [], preset.highlightColor)}
+    </div>
+  );
+}
+
+function TitleDivider({ preset, showDivider }: { preset: StylePreset; showDivider?: boolean }) {
+  const visible = showDivider !== undefined ? showDivider : (preset.titleDivider !== false);
+  if (!visible) return null;
   return (
     <div
       style={{
@@ -488,37 +518,6 @@ function TitleDivider({ preset }: { preset: StylePreset }) {
         position: "relative",
       }}
     />
-  );
-}
-
-function SlideTitle({
-  text,
-  preset,
-  highlight,
-  highlightStyle,
-}: {
-  text: string;
-  preset: StylePreset;
-  highlight?: string;
-  highlightStyle?: "default" | "italic-box";
-}) {
-  return (
-    <div
-      style={{
-        fontFamily: preset.fontFamily,
-        fontSize: preset.titleFontSize ?? 44,
-        fontWeight: preset.titleFontWeight ?? 800,
-        color: preset.titleColor ?? preset.accentColor,
-        textTransform: (preset.titleUppercase ?? true) ? "uppercase" : "none",
-        letterSpacing: (preset.titleUppercase ?? true) ? "0.06em" : "-0.02em",
-        lineHeight: 1.1,
-        marginBottom: 28,
-        position: "relative",
-        textWrap: "balance" as const,
-      }}
-    >
-      {renderWithHighlight(text, highlight, preset.highlightColor, highlightStyle)}
-    </div>
   );
 }
 
@@ -609,7 +608,7 @@ function SlideHook({
           textWrap: "balance" as const,
         }}
       >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
+        {renderWithHighlight(data.text || "", getHighlights(data), preset.highlightColor, data.highlightStyle)}
       </div>
       <SlideCounter current={index} total={total} color={preset.accentColor} />
     </div>
@@ -683,8 +682,8 @@ function SlideBody({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       {data.points ? (
@@ -726,7 +725,7 @@ function SlideBody({
             textWrap: "balance" as const,
           }}
         >
-          {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
+          {renderWithHighlight(data.text || "", getHighlights(data), preset.highlightColor, data.highlightStyle)}
         </div>
       )}
       {data.handle && (
@@ -810,8 +809,8 @@ function SlideList({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 32, position: "relative" }}>
@@ -875,8 +874,8 @@ function SlideStats({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div
@@ -960,7 +959,7 @@ function SlideQuote({
           textWrap: "balance" as const,
         }}
       >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
+        {renderWithHighlight(data.text || "", getHighlights(data), preset.highlightColor, data.highlightStyle)}
       </div>
       {data.author && (
         <div
@@ -1007,8 +1006,8 @@ function SlideChecklist({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 28, position: "relative" }}>
@@ -1077,8 +1076,8 @@ function SlideProcess({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 36, position: "relative" }}>
@@ -1180,8 +1179,8 @@ function SlideComparison({
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", gap: 32, position: "relative", flex: 1, alignItems: "stretch" }}>
@@ -1574,6 +1573,36 @@ function FieldGroup({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function HighlightTagsInput({ highlights, onChange, placeholder }: { highlights: string[]; onChange: (h: string[]) => void; placeholder?: string }) {
+  const [input, setInput] = useState("");
+  const add = () => {
+    const w = input.trim();
+    if (w && !highlights.includes(w)) onChange([...highlights, w]);
+    setInput("");
+  };
+  return (
+    <div>
+      {highlights.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+          {highlights.map((h, i) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.4)", borderRadius: 5, padding: "2px 8px", fontSize: 12, color: "#facc15" }}>
+              {h}
+              <button onClick={() => onChange(highlights.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "rgba(250,204,21,0.5)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        className="ep-input"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } }}
+        placeholder={placeholder || "word → Enter"}
+      />
+    </div>
+  );
+}
+
 function EditPanel({
   slide,
   index,
@@ -1595,56 +1624,37 @@ function EditPanel({
   onClose: () => void;
   onExport: () => void;
 }) {
-  const t = lang === "ru" ? {
-    slideOf: (i: number, n: number) => `Слайд ${i}/${n}`,
-    exportBtn: "Экспорт PNG",
-    badge: "Значок (badge)",
-    highlight: "Ключевое слово",
-    text: "Текст",
-    title: "Заголовок",
-    handle: "Хэндл",
-    author: "Автор",
-    role: "Роль / год",
-    items: "Пункты (каждый с новой строки)",
-    statsLabel: "Статистики",
-    statValue: "Значение",
-    statCaption: "Подпись",
-    addStat: "+ Добавить",
-    stepsLabel: "Шаги",
-    stepTitle: "Название шага",
-    stepDesc: "Описание (необяз.)",
-    addStep: "+ Добавить шаг",
-    pointsLabel: "Пункты",
-    addPoint: "+ Добавить",
-    leftLabel: "Заголовок слева",
-    leftItems: "Пункты слева",
-    rightLabel: "Заголовок справа",
-    rightItems: "Пункты справа",
-  } : {
-    slideOf: (i: number, n: number) => `Slide ${i}/${n}`,
-    exportBtn: "Export PNG",
-    badge: "Badge",
-    highlight: "Highlight word",
-    text: "Text",
-    title: "Title",
-    handle: "Handle",
-    author: "Author",
-    role: "Role / year",
-    items: "Items (one per line)",
-    statsLabel: "Stats",
-    statValue: "Value",
-    statCaption: "Label",
-    addStat: "+ Add",
-    stepsLabel: "Steps",
-    stepTitle: "Step title",
-    stepDesc: "Description (optional)",
-    addStep: "+ Add step",
-    pointsLabel: "Points",
-    addPoint: "+ Add",
-    leftLabel: "Left label",
-    leftItems: "Left items",
-    rightLabel: "Right label",
-    rightItems: "Right items",
+  const isRu = lang === "ru";
+  const t = {
+    slideOf: isRu ? (i: number, n: number) => `Слайд ${i}/${n}` : (i: number, n: number) => `Slide ${i}/${n}`,
+    exportBtn: isRu ? "Экспорт PNG" : "Export PNG",
+    typeLabel: isRu ? "Тип" : "Type",
+    badge: isRu ? "Значок (badge)" : "Badge",
+    highlights: isRu ? "Акценты (Enter — добавить)" : "Highlights (Enter to add)",
+    uppercase: isRu ? "ALL CAPS заголовок" : "ALL CAPS title",
+    divider: isRu ? "Линия под заголовком" : "Divider line",
+    text: isRu ? "Текст" : "Text",
+    title: isRu ? "Заголовок" : "Title",
+    handle: isRu ? "Хэндл" : "Handle",
+    author: isRu ? "Автор" : "Author",
+    role: isRu ? "Роль / год" : "Role / year",
+    items: isRu ? "Пункты (каждый с новой строки)" : "Items (one per line)",
+    statsLabel: isRu ? "Статистики" : "Stats",
+    statValue: isRu ? "Значение" : "Value",
+    statCaption: isRu ? "Подпись" : "Label",
+    addStat: isRu ? "+ Добавить" : "+ Add",
+    stepsLabel: isRu ? "Шаги" : "Steps",
+    stepTitle: isRu ? "Название шага" : "Step title",
+    stepDesc: isRu ? "Описание (необяз.)" : "Description (optional)",
+    addStep: isRu ? "+ Добавить шаг" : "+ Add step",
+    pointsLabel: isRu ? "Пункты" : "Points",
+    addPoint: isRu ? "+ Добавить" : "+ Add",
+    leftLabel: isRu ? "Заголовок слева" : "Left label",
+    leftItems: isRu ? "Пункты слева" : "Left items",
+    rightLabel: isRu ? "Заголовок справа" : "Right label",
+    rightItems: isRu ? "Пункты справа" : "Right items",
+    on: isRu ? "вкл" : "on",
+    off: isRu ? "выкл" : "off",
   };
 
   const removeBtnStyle: React.CSSProperties = {
@@ -1659,6 +1669,26 @@ function EditPanel({
     padding: "6px 0", marginTop: 4,
   };
 
+  const allTypes: SlideType[] = ["hook", "body", "list", "stats", "quote", "checklist", "process", "comparison", "cta"];
+  const typeLabels: Record<SlideType, string> = { hook: "hook", body: "body", list: "list", stats: "stats", quote: "quote", checklist: "check", process: "steps", comparison: "vs", cta: "cta" };
+
+  const currentHighlights = getHighlights(slide);
+
+  // Effective uppercase/divider: use slide override, else infer from preset
+  const effectiveUppercase = slide.uppercase !== undefined ? slide.uppercase : (preset.titleUppercase ?? true);
+  const effectiveDivider = slide.divider !== undefined ? slide.divider : (preset.titleDivider !== false);
+
+  function ToggleBtn({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+    return (
+      <button onClick={onToggle} className="tb-btn" style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${on ? "#6366F1" : "#2e2e2e"}`, borderRadius: 6, color: on ? "#a5b4fc" : "#555", cursor: "pointer", padding: "5px 10px", fontSize: 11, fontWeight: 500, whiteSpace: "nowrap" }}>
+        <span style={{ width: 20, height: 12, borderRadius: 6, background: on ? "#6366F1" : "#333", position: "relative", flexShrink: 0, display: "inline-block", transition: "background 0.15s" }}>
+          <span style={{ position: "absolute", top: 2, left: on ? 10 : 2, width: 8, height: 8, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
+        </span>
+        {label}
+      </button>
+    );
+  }
+
   return (
     <div style={{
       width: 340, flexShrink: 0, background: "#0d0d0d",
@@ -1667,25 +1697,49 @@ function EditPanel({
       overflowY: "auto", boxSizing: "border-box",
     }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 14, gap: 8 }}>
         <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#bbb" }}>
           {t.slideOf(index + 1, total)}
-          <span style={{ color: "#555", fontWeight: 400, marginLeft: 6 }}>{slide.type}</span>
         </div>
         <button onClick={onClose} style={{ background: "transparent", border: "1px solid #2e2e2e", borderRadius: 6, color: "#666", cursor: "pointer", width: 28, height: 28, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
       </div>
 
       {/* Mini preview */}
-      <div style={{ marginBottom: 18, pointerEvents: "none", borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ marginBottom: 14, pointerEvents: "none", borderRadius: 8, overflow: "hidden" }}>
         <SlidePreview data={slide} preset={preset} index={index} total={total} bgType={bgType} />
       </div>
 
-      {/* Common fields */}
+      {/* Type switcher */}
+      <FieldGroup label={t.typeLabel}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {allTypes.map(type => (
+            <button key={type} onClick={() => onChange({ type })} className="tb-btn" style={{ padding: "4px 9px", fontSize: 11, borderRadius: 5, border: slide.type === type ? "1px solid #6366F1" : "1px solid #2e2e2e", background: slide.type === type ? "#6366F118" : "transparent", color: slide.type === type ? "#a5b4fc" : "#555", cursor: "pointer", fontWeight: slide.type === type ? 700 : 400 }}>
+              {typeLabels[type]}
+            </button>
+          ))}
+        </div>
+      </FieldGroup>
+
+      {/* Style toggles (uppercase + divider) — only for slides with a title */}
+      {(slide.type === "body" || slide.type === "list" || slide.type === "stats" || slide.type === "checklist" || slide.type === "process" || slide.type === "comparison") && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          <ToggleBtn on={effectiveUppercase} label={t.uppercase} onToggle={() => onChange({ uppercase: !effectiveUppercase })} />
+          <ToggleBtn on={effectiveDivider} label={t.divider} onToggle={() => onChange({ divider: !effectiveDivider })} />
+        </div>
+      )}
+
+      {/* Badge */}
       <FieldGroup label={t.badge}>
         <input className="ep-input" value={slide.badge || ""} onChange={e => onChange({ badge: e.target.value || undefined })} placeholder="01, TIP, NEW…" />
       </FieldGroup>
-      <FieldGroup label={t.highlight}>
-        <input className="ep-input" value={slide.highlight || ""} onChange={e => onChange({ highlight: e.target.value || undefined })} placeholder="key word" />
+
+      {/* Highlights — chip input */}
+      <FieldGroup label={t.highlights}>
+        <HighlightTagsInput
+          highlights={currentHighlights}
+          onChange={h => onChange({ highlights: h.length ? h : undefined, highlight: undefined })}
+          placeholder={isRu ? "слово → Enter" : "word → Enter"}
+        />
       </FieldGroup>
 
       {/* hook */}
@@ -2098,10 +2152,10 @@ export default function CarouselPage() {
           {/* Font */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFont}</span>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.values(FONT_STYLES).map((f) => (
-                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
-                  {f.name}
+                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: f.fontFamily }} className="tb-btn">
+                  {f.displayName}
                 </button>
               ))}
             </div>

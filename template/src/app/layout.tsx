@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display, Unbounded, Space_Grotesk, JetBrains_Mono, Oswald } from "next/font/google";
+import { Inter, Playfair_Display, Unbounded, Space_Grotesk, JetBrains_Mono, Oswald, Manrope } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,6 +36,12 @@ const oswald = Oswald({
   weight: ["400", "500", "600", "700"],
 });
 
+const manrope = Manrope({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-manrope",
+  weight: ["400", "500", "600", "700", "800"],
+});
+
 export const metadata: Metadata = {
   title: "Threads Carousel Generator",
 };
@@ -47,7 +53,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className={`${inter.variable} ${playfair.variable} ${unbounded.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${oswald.variable} font-sans antialiased bg-neutral-900 text-white`}>
+      <body className={`${inter.variable} ${playfair.variable} ${unbounded.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${oswald.variable} ${manrope.variable} font-sans antialiased bg-neutral-900 text-white`}>
         {children}
       </body>
     </html>
