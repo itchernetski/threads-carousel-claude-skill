@@ -318,5 +318,4 @@ The `presentation` purpose overrides titles to 72px / 700 / sentence case and bo
 - **Per-slide background override** — currently `DEFAULT_BG` is global; could accept a per-slide `bg` field to mix decorations across a deck.
 - **Cyrillic-optimized adaptive sizing** — current thresholds are calibrated for Latin; Russian copy tends to be 20–30% longer at the same font size.
 - **Pencil MCP mode** — previous skill version had a manual design mode via Pencil; not currently implemented in the template.
-- **Slide type switching** — edit panel currently shows fields for the existing type; could add a type selector to convert e.g. `body` → `list`.
 - **Drag-to-reorder slides** — drag handles in the grid to reorder deck.

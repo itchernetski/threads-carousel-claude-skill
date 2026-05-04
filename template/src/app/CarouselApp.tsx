@@ -404,7 +404,7 @@ function SlideBackground({
 // ============================================================
 
 function getHighlights(data: SlideData): string[] {
-  if (data.highlights && data.highlights.length > 0) return data.highlights;
+  if (data.highlights && data.highlights.length > 0) return data.highlights.filter(Boolean);
   if (data.highlight) return [data.highlight];
   return [];
 }
@@ -1573,6 +1573,17 @@ function FieldGroup({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function ToggleBtn({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} className="tb-btn" style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${on ? "#6366F1" : "#2e2e2e"}`, borderRadius: 6, color: on ? "#a5b4fc" : "#555", cursor: "pointer", padding: "5px 10px", fontSize: 11, fontWeight: 500, whiteSpace: "nowrap" }}>
+      <span style={{ width: 20, height: 12, borderRadius: 6, background: on ? "#6366F1" : "#333", position: "relative", flexShrink: 0, display: "inline-block", transition: "background 0.15s" }}>
+        <span style={{ position: "absolute", top: 2, left: on ? 10 : 2, width: 8, height: 8, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function HighlightTagsInput({ highlights, onChange, placeholder }: { highlights: string[]; onChange: (h: string[]) => void; placeholder?: string }) {
   const [input, setInput] = useState("");
   const add = () => {
@@ -1653,8 +1664,6 @@ function EditPanel({
     leftItems: isRu ? "Пункты слева" : "Left items",
     rightLabel: isRu ? "Заголовок справа" : "Right label",
     rightItems: isRu ? "Пункты справа" : "Right items",
-    on: isRu ? "вкл" : "on",
-    off: isRu ? "выкл" : "off",
   };
 
   const removeBtnStyle: React.CSSProperties = {
@@ -1677,17 +1686,6 @@ function EditPanel({
   // Effective uppercase/divider: use slide override, else infer from preset
   const effectiveUppercase = slide.uppercase !== undefined ? slide.uppercase : (preset.titleUppercase ?? true);
   const effectiveDivider = slide.divider !== undefined ? slide.divider : (preset.titleDivider !== false);
-
-  function ToggleBtn({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
-    return (
-      <button onClick={onToggle} className="tb-btn" style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${on ? "#6366F1" : "#2e2e2e"}`, borderRadius: 6, color: on ? "#a5b4fc" : "#555", cursor: "pointer", padding: "5px 10px", fontSize: 11, fontWeight: 500, whiteSpace: "nowrap" }}>
-        <span style={{ width: 20, height: 12, borderRadius: 6, background: on ? "#6366F1" : "#333", position: "relative", flexShrink: 0, display: "inline-block", transition: "background 0.15s" }}>
-          <span style={{ position: "absolute", top: 2, left: on ? 10 : 2, width: 8, height: 8, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
-        </span>
-        {label}
-      </button>
-    );
-  }
 
   return (
     <div style={{
@@ -1812,7 +1810,7 @@ function EditPanel({
           <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
         </FieldGroup>
         <FieldGroup label={t.items}>
-          <textarea className="ep-input" style={{ minHeight: 120, resize: "vertical" }} value={(slide.items || []).join("\n")} onChange={e => onChange({ items: e.target.value.split("\n") })} />
+          <textarea className="ep-input" style={{ minHeight: 120, resize: "vertical" }} value={(slide.items || []).join("\n")} onChange={e => onChange({ items: e.target.value.split("\n").filter(Boolean) })} />
         </FieldGroup>
       </>)}
 
@@ -1905,7 +1903,7 @@ const T = {
     statusExport: (i: number, n: number) => `Exporting ${i}/${n}...`,
     statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
     footer: (w: number, h: number, n: number) =>
-      `${w}×${h}px — ${n} slides — Click a slide to export individually`,
+      `${w}×${h}px — ${n} slides — Click a slide to edit`,
     modes: { carousel: "Carousel", presentation: "Presentation" } as Record<PurposeId, string>,
     bgs: {
       none: "None", blobs: "Blobs", grid: "Grid", lines: "Lines",
@@ -1935,7 +1933,7 @@ const T = {
     statusExport: (i: number, n: number) => `Экспорт ${i}/${n}...`,
     statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
     footer: (w: number, h: number, n: number) =>
-      `${w}×${h}px — ${n} слайдов — Нажми на слайд для экспорта`,
+      `${w}×${h}px — ${n} слайдов — Нажми на слайд для редактирования`,
     modes: { carousel: "Карусель", presentation: "Презентация" } as Record<PurposeId, string>,
     bgs: {
       none: "Нет", blobs: "Пятна", grid: "Сетка", lines: "Линии",
