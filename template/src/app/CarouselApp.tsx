@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect, ReactNode, createContext, useContext } from "react";
 import { toPng, toJpeg } from "html-to-image";
-import type { SlideData, BgType, StylePreset, FontId, SurfaceId, AccentId, PurposeId, FormatId } from "../lib/types";
+import type { SlideData, SlideType, BgType, StylePreset, FontId, SurfaceId, AccentId, PurposeId, FormatId } from "../lib/types";
 import { FONT_STYLES, SURFACES, ACCENTS, composePreset, FORMAT_PRESETS } from "../lib/presets";
 import { SLIDES, DEFAULT_FONT, DEFAULT_SURFACE, DEFAULT_ACCENT, DEFAULT_PURPOSE, DEFAULT_BG, DEFAULT_FORMAT } from "../slides";
 
@@ -403,19 +403,24 @@ function SlideBackground({
 // HELPERS — badge, highlight, text balance
 // ============================================================
 
+function getHighlights(data: SlideData): string[] {
+  if (data.highlights && data.highlights.length > 0) return data.highlights.filter(Boolean);
+  if (data.highlight) return [data.highlight];
+  return [];
+}
+
 function renderWithHighlight(
   text: string,
-  highlight: string | undefined,
+  highlights: string[],
   highlightColor: string,
   style: "default" | "italic-box" = "default"
 ): ReactNode {
-  if (!highlight) return text;
-  const escaped = highlight.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
-  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  if (!highlights.length) return text;
+  const escaped = highlights.map(h => h.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"));
+  const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
   return parts.map((part, i) => {
-    if (part.toLowerCase() !== highlight.toLowerCase()) {
-      return <span key={i}>{part}</span>;
-    }
+    const isHighlight = highlights.some(h => part.toLowerCase() === h.toLowerCase());
+    if (!isHighlight) return <span key={i}>{part}</span>;
     if (style === "italic-box") {
       return (
         <span
@@ -426,7 +431,6 @@ function renderWithHighlight(
             fontWeight: 700,
             background: highlightColor,
             color: "#ffffff",
-            // no vertical padding — box matches line-box, horizontal breathing only
             padding: "0 0.22em",
             borderRadius: 6,
             textTransform: "none",
@@ -440,14 +444,7 @@ function renderWithHighlight(
         </span>
       );
     }
-    return (
-      <span
-        key={i}
-        style={{ color: highlightColor, position: "relative" }}
-      >
-        {part}
-      </span>
-    );
+    return <span key={i} style={{ color: highlightColor, position: "relative" }}>{part}</span>;
   });
 }
 
@@ -475,8 +472,41 @@ function Badge({ text, preset }: { text: string; preset: StylePreset }) {
   );
 }
 
-function TitleDivider({ preset }: { preset: StylePreset }) {
-  if (preset.titleDivider === false) return null;
+function SlideTitle({
+  text,
+  preset,
+  highlights,
+  uppercase,
+}: {
+  text: string;
+  preset: StylePreset;
+  highlights?: string[];
+  uppercase?: boolean;
+}) {
+  const isUppercase = uppercase !== undefined ? uppercase : (preset.titleUppercase ?? true);
+  return (
+    <div
+      style={{
+        fontFamily: preset.fontFamily,
+        fontSize: preset.titleFontSize ?? 44,
+        fontWeight: preset.titleFontWeight ?? 800,
+        color: preset.titleColor ?? preset.accentColor,
+        textTransform: isUppercase ? "uppercase" : "none",
+        letterSpacing: isUppercase ? "0.06em" : "-0.02em",
+        lineHeight: 1.1,
+        marginBottom: 28,
+        position: "relative",
+        textWrap: "balance" as const,
+      }}
+    >
+      {renderWithHighlight(text, highlights ?? [], preset.highlightColor)}
+    </div>
+  );
+}
+
+function TitleDivider({ preset, showDivider }: { preset: StylePreset; showDivider?: boolean }) {
+  const visible = showDivider !== undefined ? showDivider : (preset.titleDivider !== false);
+  if (!visible) return null;
   return (
     <div
       style={{
@@ -488,37 +518,6 @@ function TitleDivider({ preset }: { preset: StylePreset }) {
         position: "relative",
       }}
     />
-  );
-}
-
-function SlideTitle({
-  text,
-  preset,
-  highlight,
-  highlightStyle,
-}: {
-  text: string;
-  preset: StylePreset;
-  highlight?: string;
-  highlightStyle?: "default" | "italic-box";
-}) {
-  return (
-    <div
-      style={{
-        fontFamily: preset.fontFamily,
-        fontSize: preset.titleFontSize ?? 44,
-        fontWeight: preset.titleFontWeight ?? 800,
-        color: preset.titleColor ?? preset.accentColor,
-        textTransform: (preset.titleUppercase ?? true) ? "uppercase" : "none",
-        letterSpacing: (preset.titleUppercase ?? true) ? "0.06em" : "-0.02em",
-        lineHeight: 1.1,
-        marginBottom: 28,
-        position: "relative",
-        textWrap: "balance" as const,
-      }}
-    >
-      {renderWithHighlight(text, highlight, preset.highlightColor, highlightStyle)}
-    </div>
   );
 }
 
@@ -609,7 +608,7 @@ function SlideHook({
           textWrap: "balance" as const,
         }}
       >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
+        {renderWithHighlight(data.text || "", getHighlights(data), preset.highlightColor, data.highlightStyle)}
       </div>
       <SlideCounter current={index} total={total} color={preset.accentColor} />
     </div>
@@ -683,8 +682,8 @@ function SlideBody({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       {data.points ? (
@@ -726,7 +725,7 @@ function SlideBody({
             textWrap: "balance" as const,
           }}
         >
-          {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
+          {renderWithHighlight(data.text || "", getHighlights(data), preset.highlightColor, data.highlightStyle)}
         </div>
       )}
       {data.handle && (
@@ -810,8 +809,8 @@ function SlideList({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 32, position: "relative" }}>
@@ -875,8 +874,8 @@ function SlideStats({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div
@@ -960,7 +959,7 @@ function SlideQuote({
           textWrap: "balance" as const,
         }}
       >
-        {renderWithHighlight(data.text || "", data.highlight, preset.highlightColor, data.highlightStyle)}
+        {renderWithHighlight(data.text || "", getHighlights(data), preset.highlightColor, data.highlightStyle)}
       </div>
       {data.author && (
         <div
@@ -1007,8 +1006,8 @@ function SlideChecklist({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 28, position: "relative" }}>
@@ -1077,8 +1076,8 @@ function SlideProcess({
       {data.badge && <Badge text={data.badge} preset={preset} />}
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 36, position: "relative" }}>
@@ -1180,8 +1179,8 @@ function SlideComparison({
     <SlideShell preset={preset} index={index} total={total} bgType={bgType}>
       {data.title && (
         <>
-          <SlideTitle text={data.title} preset={preset} highlight={data.highlight} highlightStyle={data.highlightStyle} />
-          <TitleDivider preset={preset} />
+          <SlideTitle text={data.title} preset={preset} highlights={getHighlights(data)} uppercase={data.uppercase} />
+          <TitleDivider preset={preset} showDivider={data.divider} />
         </>
       )}
       <div style={{ display: "flex", gap: 32, position: "relative", flex: 1, alignItems: "stretch" }}>
@@ -1562,6 +1561,328 @@ function SlidePreview({
 }
 
 // ============================================================
+// EDIT PANEL
+// ============================================================
+
+function FieldGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 10, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function ToggleBtn({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} className="tb-btn" style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${on ? "#6366F1" : "#2e2e2e"}`, borderRadius: 6, color: on ? "#a5b4fc" : "#555", cursor: "pointer", padding: "5px 10px", fontSize: 11, fontWeight: 500, whiteSpace: "nowrap" }}>
+      <span style={{ width: 20, height: 12, borderRadius: 6, background: on ? "#6366F1" : "#333", position: "relative", flexShrink: 0, display: "inline-block", transition: "background 0.15s" }}>
+        <span style={{ position: "absolute", top: 2, left: on ? 10 : 2, width: 8, height: 8, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function HighlightTagsInput({ highlights, onChange, placeholder }: { highlights: string[]; onChange: (h: string[]) => void; placeholder?: string }) {
+  const [input, setInput] = useState("");
+  const add = () => {
+    const w = input.trim();
+    if (w && !highlights.includes(w)) onChange([...highlights, w]);
+    setInput("");
+  };
+  return (
+    <div>
+      {highlights.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+          {highlights.map((h, i) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.4)", borderRadius: 5, padding: "2px 8px", fontSize: 12, color: "#facc15" }}>
+              {h}
+              <button onClick={() => onChange(highlights.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "rgba(250,204,21,0.5)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        className="ep-input"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } }}
+        placeholder={placeholder || "word → Enter"}
+      />
+    </div>
+  );
+}
+
+function EditPanel({
+  slide,
+  index,
+  total,
+  preset,
+  bgType,
+  lang,
+  onChange,
+  onClose,
+  onExport,
+}: {
+  slide: SlideData;
+  index: number;
+  total: number;
+  preset: StylePreset;
+  bgType: BgType;
+  lang: "en" | "ru";
+  onChange: (patch: Partial<SlideData>) => void;
+  onClose: () => void;
+  onExport: () => void;
+}) {
+  const isRu = lang === "ru";
+  const t = {
+    slideOf: isRu ? (i: number, n: number) => `Слайд ${i}/${n}` : (i: number, n: number) => `Slide ${i}/${n}`,
+    exportBtn: isRu ? "Экспорт PNG" : "Export PNG",
+    typeLabel: isRu ? "Тип" : "Type",
+    badge: isRu ? "Значок (badge)" : "Badge",
+    highlights: isRu ? "Акценты (Enter — добавить)" : "Highlights (Enter to add)",
+    uppercase: isRu ? "ALL CAPS заголовок" : "ALL CAPS title",
+    divider: isRu ? "Линия под заголовком" : "Divider line",
+    text: isRu ? "Текст" : "Text",
+    title: isRu ? "Заголовок" : "Title",
+    handle: isRu ? "Хэндл" : "Handle",
+    author: isRu ? "Автор" : "Author",
+    role: isRu ? "Роль / год" : "Role / year",
+    items: isRu ? "Пункты (каждый с новой строки)" : "Items (one per line)",
+    statsLabel: isRu ? "Статистики" : "Stats",
+    statValue: isRu ? "Значение" : "Value",
+    statCaption: isRu ? "Подпись" : "Label",
+    addStat: isRu ? "+ Добавить" : "+ Add",
+    stepsLabel: isRu ? "Шаги" : "Steps",
+    stepTitle: isRu ? "Название шага" : "Step title",
+    stepDesc: isRu ? "Описание (необяз.)" : "Description (optional)",
+    addStep: isRu ? "+ Добавить шаг" : "+ Add step",
+    pointsLabel: isRu ? "Пункты" : "Points",
+    addPoint: isRu ? "+ Добавить" : "+ Add",
+    leftLabel: isRu ? "Заголовок слева" : "Left label",
+    leftItems: isRu ? "Пункты слева" : "Left items",
+    rightLabel: isRu ? "Заголовок справа" : "Right label",
+    rightItems: isRu ? "Пункты справа" : "Right items",
+  };
+
+  const removeBtnStyle: React.CSSProperties = {
+    width: 24, height: 24, flexShrink: 0, border: "none", borderRadius: 4,
+    background: "transparent", color: "#484848", cursor: "pointer", fontSize: 16,
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+  };
+
+  const addBtnStyle: React.CSSProperties = {
+    width: "100%", background: "transparent", border: "1px dashed #2e2e2e",
+    borderRadius: 6, color: "#555", cursor: "pointer", fontSize: 12,
+    padding: "6px 0", marginTop: 4,
+  };
+
+  const allTypes: SlideType[] = ["hook", "body", "list", "stats", "quote", "checklist", "process", "comparison", "cta"];
+  const typeLabels: Record<SlideType, string> = { hook: "hook", body: "body", list: "list", stats: "stats", quote: "quote", checklist: "check", process: "steps", comparison: "vs", cta: "cta" };
+
+  const currentHighlights = getHighlights(slide);
+
+  // Effective uppercase/divider: use slide override, else infer from preset
+  const effectiveUppercase = slide.uppercase !== undefined ? slide.uppercase : (preset.titleUppercase ?? true);
+  const effectiveDivider = slide.divider !== undefined ? slide.divider : (preset.titleDivider !== false);
+
+  return (
+    <div style={{
+      width: 340, flexShrink: 0, background: "#0d0d0d",
+      borderLeft: "1px solid #222", padding: "18px 18px 48px",
+      position: "sticky", top: 0, height: "100vh",
+      overflowY: "auto", boxSizing: "border-box",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 14, gap: 8 }}>
+        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#bbb" }}>
+          {t.slideOf(index + 1, total)}
+        </div>
+        <button onClick={onClose} style={{ background: "transparent", border: "1px solid #2e2e2e", borderRadius: 6, color: "#666", cursor: "pointer", width: 28, height: 28, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
+      </div>
+
+      {/* Mini preview */}
+      <div style={{ marginBottom: 14, pointerEvents: "none", borderRadius: 8, overflow: "hidden" }}>
+        <SlidePreview data={slide} preset={preset} index={index} total={total} bgType={bgType} />
+      </div>
+
+      {/* Type switcher */}
+      <FieldGroup label={t.typeLabel}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {allTypes.map(type => (
+            <button key={type} onClick={() => onChange({ type })} className="tb-btn" style={{ padding: "4px 9px", fontSize: 11, borderRadius: 5, border: slide.type === type ? "1px solid #6366F1" : "1px solid #2e2e2e", background: slide.type === type ? "#6366F118" : "transparent", color: slide.type === type ? "#a5b4fc" : "#555", cursor: "pointer", fontWeight: slide.type === type ? 700 : 400 }}>
+              {typeLabels[type]}
+            </button>
+          ))}
+        </div>
+      </FieldGroup>
+
+      {/* Style toggles (uppercase + divider) — only for slides with a title */}
+      {(slide.type === "body" || slide.type === "list" || slide.type === "stats" || slide.type === "checklist" || slide.type === "process" || slide.type === "comparison") && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          <ToggleBtn on={effectiveUppercase} label={t.uppercase} onToggle={() => onChange({ uppercase: !effectiveUppercase })} />
+          <ToggleBtn on={effectiveDivider} label={t.divider} onToggle={() => onChange({ divider: !effectiveDivider })} />
+        </div>
+      )}
+
+      {/* Badge */}
+      <FieldGroup label={t.badge}>
+        <input className="ep-input" value={slide.badge || ""} onChange={e => onChange({ badge: e.target.value || undefined })} placeholder="01, TIP, NEW…" />
+      </FieldGroup>
+
+      {/* Highlights — chip input */}
+      <FieldGroup label={t.highlights}>
+        <HighlightTagsInput
+          highlights={currentHighlights}
+          onChange={h => onChange({ highlights: h.length ? h : undefined, highlight: undefined })}
+          placeholder={isRu ? "слово → Enter" : "word → Enter"}
+        />
+      </FieldGroup>
+
+      {/* hook */}
+      {slide.type === "hook" && (
+        <FieldGroup label={t.text}>
+          <textarea className="ep-input" style={{ minHeight: 90, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+        </FieldGroup>
+      )}
+
+      {/* cta */}
+      {slide.type === "cta" && (<>
+        <FieldGroup label={t.text}>
+          <textarea className="ep-input" style={{ minHeight: 80, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.handle}>
+          <input className="ep-input" value={slide.handle || ""} onChange={e => onChange({ handle: e.target.value })} placeholder="@username" />
+        </FieldGroup>
+      </>)}
+
+      {/* body */}
+      {slide.type === "body" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        {slide.points ? (
+          <FieldGroup label={t.pointsLabel}>
+            {slide.points.map((point, pi) => (
+              <div key={pi} style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
+                <button
+                  onClick={() => {
+                    const np = [...slide.points!];
+                    np[pi] = { ...np[pi], type: np[pi].type === "plus" ? "minus" : "plus" };
+                    onChange({ points: np });
+                  }}
+                  style={{ width: 28, height: 28, flexShrink: 0, border: "none", borderRadius: 5, background: point.type === "plus" ? "#22c55e18" : "#ef444418", color: point.type === "plus" ? "#22c55e" : "#ef4444", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  {point.type === "plus" ? "+" : "−"}
+                </button>
+                <input className="ep-input" style={{ flex: 1 }} value={point.text} onChange={e => {
+                  const np = [...slide.points!]; np[pi] = { ...np[pi], text: e.target.value }; onChange({ points: np });
+                }} />
+                <button style={removeBtnStyle} onClick={() => onChange({ points: slide.points!.filter((_, idx) => idx !== pi) })}>×</button>
+              </div>
+            ))}
+            <button style={addBtnStyle} onClick={() => onChange({ points: [...(slide.points || []), { type: "plus", text: "" }] })}>{t.addPoint}</button>
+          </FieldGroup>
+        ) : (
+          <FieldGroup label={t.text}>
+            <textarea className="ep-input" style={{ minHeight: 100, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+          </FieldGroup>
+        )}
+      </>)}
+
+      {/* quote */}
+      {slide.type === "quote" && (<>
+        <FieldGroup label={t.text}>
+          <textarea className="ep-input" style={{ minHeight: 100, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.author}>
+          <input className="ep-input" value={slide.author || ""} onChange={e => onChange({ author: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.role}>
+          <input className="ep-input" value={slide.role || ""} onChange={e => onChange({ role: e.target.value })} />
+        </FieldGroup>
+      </>)}
+
+      {/* list / checklist */}
+      {(slide.type === "list" || slide.type === "checklist") && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.items}>
+          <textarea className="ep-input" style={{ minHeight: 120, resize: "vertical" }} value={(slide.items || []).join("\n")} onChange={e => onChange({ items: e.target.value.split("\n").filter(Boolean) })} />
+        </FieldGroup>
+      </>)}
+
+      {/* stats */}
+      {slide.type === "stats" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.statsLabel}>
+          {(slide.stats || []).map((stat, si) => (
+            <div key={si} style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
+              <input className="ep-input" style={{ width: "38%" }} value={stat.value} placeholder={t.statValue}
+                onChange={e => { const ns = [...(slide.stats || [])]; ns[si] = { ...ns[si], value: e.target.value }; onChange({ stats: ns }); }} />
+              <input className="ep-input" style={{ flex: 1 }} value={stat.label} placeholder={t.statCaption}
+                onChange={e => { const ns = [...(slide.stats || [])]; ns[si] = { ...ns[si], label: e.target.value }; onChange({ stats: ns }); }} />
+              <button style={removeBtnStyle} onClick={() => onChange({ stats: (slide.stats || []).filter((_, idx) => idx !== si) })}>×</button>
+            </div>
+          ))}
+          <button style={addBtnStyle} onClick={() => onChange({ stats: [...(slide.stats || []), { value: "", label: "" }] })}>{t.addStat}</button>
+        </FieldGroup>
+      </>)}
+
+      {/* process */}
+      {slide.type === "process" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.stepsLabel}>
+          {(slide.steps || []).map((step, si) => (
+            <div key={si} style={{ marginBottom: 8, padding: "9px 10px", background: "#161616", borderRadius: 7 }}>
+              <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 5 }}>
+                <span style={{ fontSize: 10, color: "#444", fontWeight: 700, width: 18 }}>{si + 1}.</span>
+                <input className="ep-input" style={{ flex: 1 }} value={step.title} placeholder={t.stepTitle}
+                  onChange={e => { const ns = [...(slide.steps || [])]; ns[si] = { ...ns[si], title: e.target.value }; onChange({ steps: ns }); }} />
+                <button style={removeBtnStyle} onClick={() => onChange({ steps: (slide.steps || []).filter((_, idx) => idx !== si) })}>×</button>
+              </div>
+              <input className="ep-input" style={{ marginLeft: 23 }} value={step.text || ""} placeholder={t.stepDesc}
+                onChange={e => { const ns = [...(slide.steps || [])]; ns[si] = { ...ns[si], text: e.target.value || undefined }; onChange({ steps: ns }); }} />
+            </div>
+          ))}
+          <button style={addBtnStyle} onClick={() => onChange({ steps: [...(slide.steps || []), { title: "" }] })}>{t.addStep}</button>
+        </FieldGroup>
+      </>)}
+
+      {/* comparison */}
+      {slide.type === "comparison" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.leftLabel}>
+          <input className="ep-input" value={slide.leftLabel || ""} onChange={e => onChange({ leftLabel: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.leftItems}>
+          <textarea className="ep-input" style={{ minHeight: 80, resize: "vertical" }} value={(slide.leftItems || []).join("\n")} onChange={e => onChange({ leftItems: e.target.value.split("\n") })} />
+        </FieldGroup>
+        <FieldGroup label={t.rightLabel}>
+          <input className="ep-input" value={slide.rightLabel || ""} onChange={e => onChange({ rightLabel: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.rightItems}>
+          <textarea className="ep-input" style={{ minHeight: 80, resize: "vertical" }} value={(slide.rightItems || []).join("\n")} onChange={e => onChange({ rightItems: e.target.value.split("\n") })} />
+        </FieldGroup>
+      </>)}
+
+      {/* Export button */}
+      <button onClick={onExport} className="tb-btn" style={{ width: "100%", marginTop: 20, padding: "10px 0", background: "#6366F1", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+        {t.exportBtn}
+      </button>
+    </div>
+  );
+}
+
+// ============================================================
 // I18N
 // ============================================================
 
@@ -1582,7 +1903,7 @@ const T = {
     statusExport: (i: number, n: number) => `Exporting ${i}/${n}...`,
     statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
     footer: (w: number, h: number, n: number) =>
-      `${w}×${h}px — ${n} slides — Click a slide to export individually`,
+      `${w}×${h}px — ${n} slides — Click a slide to edit`,
     modes: { carousel: "Carousel", presentation: "Presentation" } as Record<PurposeId, string>,
     bgs: {
       none: "None", blobs: "Blobs", grid: "Grid", lines: "Lines",
@@ -1612,7 +1933,7 @@ const T = {
     statusExport: (i: number, n: number) => `Экспорт ${i}/${n}...`,
     statusPdf: (i: number, n: number) => `PDF ${i}/${n}...`,
     footer: (w: number, h: number, n: number) =>
-      `${w}×${h}px — ${n} слайдов — Нажми на слайд для экспорта`,
+      `${w}×${h}px — ${n} слайдов — Нажми на слайд для редактирования`,
     modes: { carousel: "Карусель", presentation: "Презентация" } as Record<PurposeId, string>,
     bgs: {
       none: "Нет", blobs: "Пятна", grid: "Сетка", lines: "Линии",
@@ -1645,9 +1966,17 @@ export default function CarouselPage() {
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
+  const [slides, setSlides] = useState<SlideData[]>(() => [...SLIDES]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const langRef = useRef<Lang>("ru");
   langRef.current = lang;
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
   const offscreenRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const updateSlide = useCallback((index: number, patch: Partial<SlideData>) => {
+    setSlides(prev => prev.map((s, i) => i === index ? { ...s, ...patch } : s));
+  }, []);
 
   const canvasW = FORMAT_PRESETS[formatId].w;
   const canvasH = FORMAT_PRESETS[formatId].h;
@@ -1687,7 +2016,7 @@ export default function CarouselPage() {
       const dataUrl = await captureSlide(index);
       if (!dataUrl) return;
       const link = document.createElement("a");
-      link.download = `${String(index + 1).padStart(2, "0")}-${SLIDES[index].type}.png`;
+      link.download = `${String(index + 1).padStart(2, "0")}-${slidesRef.current[index].type}.png`;
       link.href = dataUrl;
       link.click();
     },
@@ -1697,8 +2026,9 @@ export default function CarouselPage() {
   const exportAll = useCallback(async () => {
     setExporting(true);
     const tl = T[langRef.current];
-    for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(tl.statusExport(i + 1, SLIDES.length));
+    const n = slidesRef.current.length;
+    for (let i = 0; i < n; i++) {
+      setExportStatus(tl.statusExport(i + 1, n));
       await exportSlide(i);
       await new Promise((r) => setTimeout(r, 300));
     }
@@ -1716,8 +2046,9 @@ export default function CarouselPage() {
     const jpegOpts = { width: canvasW, height: canvasH, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
 
     const tl = T[langRef.current];
-    for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(tl.statusPdf(i + 1, SLIDES.length));
+    const n = slidesRef.current.length;
+    for (let i = 0; i < n; i++) {
+      setExportStatus(tl.statusPdf(i + 1, n));
       const el = offscreenRefs.current[i];
       if (!el) continue;
 
@@ -1743,7 +2074,8 @@ export default function CarouselPage() {
 
   return (
     <CanvasSizeContext.Provider value={{ w: canvasW, h: canvasH }}>
-    <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
+    <div suppressHydrationWarning style={{ display: "flex", minHeight: "100vh", alignItems: "flex-start" }}>
+    <div style={{ flex: 1, minWidth: 0, padding: 32 }}>
       {/* Toolbar */}
       <div style={{ marginBottom: 32 }}>
         {/* Title + Export + Lang toggle */}
@@ -1818,10 +2150,10 @@ export default function CarouselPage() {
           {/* Font */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 11, color: "#666", width: 90, flexShrink: 0 }}>{t.rowFont}</span>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.values(FONT_STYLES).map((f) => (
-                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 500 }} className="tb-btn">
-                  {f.name}
+                <button key={f.id} onClick={() => setFontId(f.id)} style={{ padding: "9px 14px", minHeight: 36, borderRadius: 8, border: fontId === f.id ? "2px solid #6366F1" : "1px solid #333", background: fontId === f.id ? "#6366F1" : "transparent", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: f.fontFamily }} className="tb-btn">
+                  {f.displayName}
                 </button>
               ))}
             </div>
@@ -1886,42 +2218,57 @@ export default function CarouselPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
           gap: 20,
         }}
       >
-        {SLIDES.map((slide, i) => (
+        {slides.map((slide, i) => (
           <div key={i}>
             <div
-              onClick={() => !exporting && exportSlide(i)}
-              className="slide-card"
-              title="Click to export this slide"
+              onClick={() => !exporting && setEditingIndex(editingIndex === i ? null : i)}
+              className={`slide-card${editingIndex === i ? " slide-card--active" : ""}`}
+              title={editingIndex === i ? undefined : (lang === "ru" ? "Нажмите для редактирования" : "Click to edit")}
+              style={{ position: "relative" }}
             >
               <SlidePreview
                 data={slide}
                 preset={preset}
                 index={i}
-                total={SLIDES.length}
+                total={slides.length}
                 bgType={bgType}
               />
+              <div className="slide-edit-overlay">
+                <span style={{ fontSize: 15 }}>✏</span>
+                <span>{lang === "ru" ? "Редактировать" : "Edit"}</span>
+              </div>
             </div>
             <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 fontSize: 12,
                 color: "#888",
                 marginTop: 8,
-                textAlign: "center",
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {i + 1}/{SLIDES.length} — {slide.type}
+              <span>{i + 1}/{slides.length} — {slide.type}</span>
+              <button
+                onClick={() => !exporting && exportSlide(i)}
+                className="tb-btn"
+                title={lang === "ru" ? "Экспорт PNG" : "Export PNG"}
+                style={{ background: "transparent", border: "1px solid #2a2a2a", borderRadius: 5, color: "#555", cursor: "pointer", fontSize: 11, padding: "2px 7px", lineHeight: 1.6 }}
+              >
+                ↓
+              </button>
             </div>
           </div>
         ))}
       </div>
 
       {/* Offscreen slides for export — always rendered at (0,0), invisible via opacity */}
-      {SLIDES.map((slide, i) => (
+      {slides.map((slide, i) => (
         <div
           key={`export-${i}`}
           ref={(el) => {
@@ -1939,7 +2286,7 @@ export default function CarouselPage() {
             fontFamily: preset.fontFamily,
           }}
         >
-          <Slide data={slide} preset={preset} index={i} total={SLIDES.length} bgType={bgType} />
+          <Slide data={slide} preset={preset} index={i} total={slides.length} bgType={bgType} />
         </div>
       ))}
 
@@ -1952,8 +2299,24 @@ export default function CarouselPage() {
           textAlign: "center",
         }}
       >
-        {t.footer(canvasW, canvasH, SLIDES.length)}
+        {t.footer(canvasW, canvasH, slides.length)}
       </div>
+    </div>
+
+    {/* Edit Panel */}
+    {editingIndex !== null && editingIndex < slides.length && (
+      <EditPanel
+        slide={slides[editingIndex]}
+        index={editingIndex}
+        total={slides.length}
+        preset={preset}
+        bgType={bgType}
+        lang={lang}
+        onChange={(patch) => updateSlide(editingIndex, patch)}
+        onClose={() => setEditingIndex(null)}
+        onExport={() => exportSlide(editingIndex)}
+      />
+    )}
     </div>
     </CanvasSizeContext.Provider>
   );

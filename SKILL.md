@@ -52,8 +52,10 @@ Converts a text post into a set of visual carousel slides for Threads, Instagram
 
 All types also support optional:
 - `badge` — small outlined tag above title (e.g. `"01"`, `"TIP"`)
-- `highlight` — a word or phrase within `text`/`title` that will be colored in the preset's highlight color (yellow for dark themes)
-- `highlightStyle: "italic-box"` — renders the highlighted word in Playfair italic on a colored rectangle (instead of plain color)
+- `highlights` — array of words/phrases within `text`/`title` colored in the preset's highlight color. Old `highlight` (single string) is still accepted as a backward-compat fallback
+- `highlightStyle: "italic-box"` — renders highlighted words in Playfair italic on a colored rectangle (instead of plain color)
+- `uppercase` — `true` / `false` per-slide override for title all-caps (carousel purpose defaults to `true`)
+- `divider` — `true` / `false` per-slide override for the accent line below the title
 
 ### Images in slides
 
@@ -84,15 +86,18 @@ Switchable via toolbar in preview. Default: `glow`.
 
 The final style is composed at runtime from three axes via `composePreset(font, color, purpose)`:
 
-**Font axis** (`DEFAULT_FONT`), 5 typefaces:
+**Font axis** (`DEFAULT_FONT`), 6 typefaces:
 
-| Id | Font | Feel |
-|---|---|---|
-| `minimal` *(default)* | Unbounded (body + hook) | Geometric display, bold, distinctive |
-| `editorial` | Playfair Display | Classic serif, literary |
-| `clean` | Inter | Neutral sans-serif, most standard |
-| `mono` | JetBrains Mono | Monospace, tech/dev feel |
-| `condensed` | Oswald | Narrow + tall, editorial poster |
+| Id | Font | Feel | Cyrillic |
+|---|---|---|---|
+| `minimal` *(default)* | Unbounded (body + hook) | Geometric display, bold, distinctive | partial |
+| `editorial` | Playfair Display | Classic serif, literary | yes |
+| `clean` | Inter | Neutral sans-serif, most standard | yes |
+| `mono` | JetBrains Mono | Monospace, tech/dev feel | yes |
+| `condensed` | Oswald | Narrow + tall, editorial poster | yes |
+| `manrope` | Manrope | Rounded humanist sans | **full** — best for Russian content |
+
+> **Cyrillic tip:** Use `manrope` for consistent Cyrillic rendering. Font picker buttons display each typeface name **in its own font** so you can visually compare before choosing.
 
 **Surface axis** (`DEFAULT_SURFACE`) — bg + text neutrals, 8 options:
 
@@ -244,7 +249,16 @@ Tell the user to open `http://localhost:3333`. They can:
 - Toggle UI language **RU / EN** in the top-right
 - Click **PDF** to download all slides in one file (JPEG-compressed, ~5–8 MB for 10 slides)
 - Click **PNG** (a.k.a. "Export All") to download every slide as `01-hook.png`, `02-body.png`, …
-- Click an individual slide thumbnail to export just that one as PNG
+- **Hover a slide** to see the ✏ edit indicator, then **click** to open the per-slide Edit Panel
+- **Edit panel** (right sidebar): full per-slide customization:
+  - **Type switcher** — change `hook → body → list → stats → …` without recreating the slide
+  - **ALL CAPS toggle** — override uppercase/normal case per slide (independent of global purpose setting)
+  - **Divider toggle** — show/hide the accent line under the title per slide
+  - **Highlights** — chip/tag input: type a word + Enter to add; multiple highlight words supported; click × to remove
+  - **Badge** — short tag above the title (`01`, `TIP`, `NEW`…)
+  - Type-specific fields: text, title, handle, author/role, items[], stats[], steps[], points[] with ±toggle, comparison columns
+- Click **↓** below a slide to export just that one as PNG (without opening the editor)
+- Toggle edit panel off by clicking the active slide again or pressing ✕
 
 After export, stop the dev server.
 
@@ -304,3 +318,4 @@ The `presentation` purpose overrides titles to 72px / 700 / sentence case and bo
 - **Per-slide background override** — currently `DEFAULT_BG` is global; could accept a per-slide `bg` field to mix decorations across a deck.
 - **Cyrillic-optimized adaptive sizing** — current thresholds are calibrated for Latin; Russian copy tends to be 20–30% longer at the same font size.
 - **Pencil MCP mode** — previous skill version had a manual design mode via Pencil; not currently implemented in the template.
+- **Drag-to-reorder slides** — drag handles in the grid to reorder deck.

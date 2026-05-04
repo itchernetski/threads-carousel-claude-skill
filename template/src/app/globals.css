@@ -55,3 +55,55 @@ body {
   transition-duration: 0.3s;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
+
+/* Edit overlay — fades in on hover, signals the slide is clickable */
+.slide-edit-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.52);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
+  pointer-events: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.slide-card:hover .slide-edit-overlay {
+  opacity: 1;
+}
+/* active (editing) card gets indigo ring, no overlay needed */
+.slide-card--active {
+  outline: 2px solid #6366F1;
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+.slide-card--active .slide-edit-overlay {
+  opacity: 0;
+}
+
+/* Edit panel inputs */
+.ep-input {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  color: #e5e5e5;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.12s;
+}
+.ep-input:focus {
+  border-color: #6366F1;
+}
+.ep-input::placeholder {
+  color: #444;
+}

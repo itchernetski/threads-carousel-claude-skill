@@ -29,6 +29,7 @@ export const FONT_STYLES: Record<FontId, FontStyle> = {
   minimal: {
     id: "minimal",
     name: "Minimal",
+    displayName: "Unbounded",
     fontFamily: "var(--font-unbounded)",
     hookFontFamily: "var(--font-unbounded)",
   },
@@ -36,13 +37,15 @@ export const FONT_STYLES: Record<FontId, FontStyle> = {
   editorial: {
     id: "editorial",
     name: "Editorial",
+    displayName: "Playfair Display",
     fontFamily: "var(--font-playfair)",
     hookFontFamily: "var(--font-playfair)",
   },
   // Neutral sans-serif — pure Inter throughout. The most "standard" look.
   clean: {
     id: "clean",
-    name: "Clean",
+    name: "Inter",
+    displayName: "Inter",
     fontFamily: "var(--font-inter)",
     hookFontFamily: "var(--font-inter)",
   },
@@ -50,6 +53,7 @@ export const FONT_STYLES: Record<FontId, FontStyle> = {
   mono: {
     id: "mono",
     name: "Mono",
+    displayName: "JetBrains Mono",
     fontFamily: "var(--font-jetbrains-mono)",
     hookFontFamily: "var(--font-jetbrains-mono)",
   },
@@ -57,8 +61,17 @@ export const FONT_STYLES: Record<FontId, FontStyle> = {
   condensed: {
     id: "condensed",
     name: "Condensed",
+    displayName: "Oswald",
     fontFamily: "var(--font-oswald)",
     hookFontFamily: "var(--font-oswald)",
+  },
+  // Full Cyrillic sans-serif — best choice for Russian content.
+  manrope: {
+    id: "manrope",
+    name: "Manrope",
+    displayName: "Manrope",
+    fontFamily: "var(--font-manrope)",
+    hookFontFamily: "var(--font-manrope)",
   },
 };
 
