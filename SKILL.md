@@ -244,7 +244,10 @@ Tell the user to open `http://localhost:3333`. They can:
 - Toggle UI language **RU / EN** in the top-right
 - Click **PDF** to download all slides in one file (JPEG-compressed, ~5–8 MB for 10 slides)
 - Click **PNG** (a.k.a. "Export All") to download every slide as `01-hook.png`, `02-body.png`, …
-- Click an individual slide thumbnail to export just that one as PNG
+- **Hover a slide** to see the ✏ edit indicator, then **click** to open the per-slide Edit Panel
+- **Edit panel** (right sidebar): edit text, title, badge, highlight, handle, author/role, items[], stats[], steps[], points[], comparison fields — live preview updates instantly
+- Click **↓** below a slide to export just that one as PNG (without opening the editor)
+- Toggle edit panel off by clicking the active slide again or pressing ✕
 
 After export, stop the dev server.
 
@@ -304,3 +307,5 @@ The `presentation` purpose overrides titles to 72px / 700 / sentence case and bo
 - **Per-slide background override** — currently `DEFAULT_BG` is global; could accept a per-slide `bg` field to mix decorations across a deck.
 - **Cyrillic-optimized adaptive sizing** — current thresholds are calibrated for Latin; Russian copy tends to be 20–30% longer at the same font size.
 - **Pencil MCP mode** — previous skill version had a manual design mode via Pencil; not currently implemented in the template.
+- **Slide type switching** — edit panel currently shows fields for the existing type; could add a type selector to convert e.g. `body` → `list`.
+- **Drag-to-reorder slides** — drag handles in the grid to reorder deck.

@@ -1562,6 +1562,275 @@ function SlidePreview({
 }
 
 // ============================================================
+// EDIT PANEL
+// ============================================================
+
+function FieldGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 10, color: "#555", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function EditPanel({
+  slide,
+  index,
+  total,
+  preset,
+  bgType,
+  lang,
+  onChange,
+  onClose,
+  onExport,
+}: {
+  slide: SlideData;
+  index: number;
+  total: number;
+  preset: StylePreset;
+  bgType: BgType;
+  lang: "en" | "ru";
+  onChange: (patch: Partial<SlideData>) => void;
+  onClose: () => void;
+  onExport: () => void;
+}) {
+  const t = lang === "ru" ? {
+    slideOf: (i: number, n: number) => `Слайд ${i}/${n}`,
+    exportBtn: "Экспорт PNG",
+    badge: "Значок (badge)",
+    highlight: "Ключевое слово",
+    text: "Текст",
+    title: "Заголовок",
+    handle: "Хэндл",
+    author: "Автор",
+    role: "Роль / год",
+    items: "Пункты (каждый с новой строки)",
+    statsLabel: "Статистики",
+    statValue: "Значение",
+    statCaption: "Подпись",
+    addStat: "+ Добавить",
+    stepsLabel: "Шаги",
+    stepTitle: "Название шага",
+    stepDesc: "Описание (необяз.)",
+    addStep: "+ Добавить шаг",
+    pointsLabel: "Пункты",
+    addPoint: "+ Добавить",
+    leftLabel: "Заголовок слева",
+    leftItems: "Пункты слева",
+    rightLabel: "Заголовок справа",
+    rightItems: "Пункты справа",
+  } : {
+    slideOf: (i: number, n: number) => `Slide ${i}/${n}`,
+    exportBtn: "Export PNG",
+    badge: "Badge",
+    highlight: "Highlight word",
+    text: "Text",
+    title: "Title",
+    handle: "Handle",
+    author: "Author",
+    role: "Role / year",
+    items: "Items (one per line)",
+    statsLabel: "Stats",
+    statValue: "Value",
+    statCaption: "Label",
+    addStat: "+ Add",
+    stepsLabel: "Steps",
+    stepTitle: "Step title",
+    stepDesc: "Description (optional)",
+    addStep: "+ Add step",
+    pointsLabel: "Points",
+    addPoint: "+ Add",
+    leftLabel: "Left label",
+    leftItems: "Left items",
+    rightLabel: "Right label",
+    rightItems: "Right items",
+  };
+
+  const removeBtnStyle: React.CSSProperties = {
+    width: 24, height: 24, flexShrink: 0, border: "none", borderRadius: 4,
+    background: "transparent", color: "#484848", cursor: "pointer", fontSize: 16,
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+  };
+
+  const addBtnStyle: React.CSSProperties = {
+    width: "100%", background: "transparent", border: "1px dashed #2e2e2e",
+    borderRadius: 6, color: "#555", cursor: "pointer", fontSize: 12,
+    padding: "6px 0", marginTop: 4,
+  };
+
+  return (
+    <div style={{
+      width: 340, flexShrink: 0, background: "#0d0d0d",
+      borderLeft: "1px solid #222", padding: "18px 18px 48px",
+      position: "sticky", top: 0, height: "100vh",
+      overflowY: "auto", boxSizing: "border-box",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 8 }}>
+        <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#bbb" }}>
+          {t.slideOf(index + 1, total)}
+          <span style={{ color: "#555", fontWeight: 400, marginLeft: 6 }}>{slide.type}</span>
+        </div>
+        <button onClick={onClose} style={{ background: "transparent", border: "1px solid #2e2e2e", borderRadius: 6, color: "#666", cursor: "pointer", width: 28, height: 28, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
+      </div>
+
+      {/* Mini preview */}
+      <div style={{ marginBottom: 18, pointerEvents: "none", borderRadius: 8, overflow: "hidden" }}>
+        <SlidePreview data={slide} preset={preset} index={index} total={total} bgType={bgType} />
+      </div>
+
+      {/* Common fields */}
+      <FieldGroup label={t.badge}>
+        <input className="ep-input" value={slide.badge || ""} onChange={e => onChange({ badge: e.target.value || undefined })} placeholder="01, TIP, NEW…" />
+      </FieldGroup>
+      <FieldGroup label={t.highlight}>
+        <input className="ep-input" value={slide.highlight || ""} onChange={e => onChange({ highlight: e.target.value || undefined })} placeholder="key word" />
+      </FieldGroup>
+
+      {/* hook */}
+      {slide.type === "hook" && (
+        <FieldGroup label={t.text}>
+          <textarea className="ep-input" style={{ minHeight: 90, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+        </FieldGroup>
+      )}
+
+      {/* cta */}
+      {slide.type === "cta" && (<>
+        <FieldGroup label={t.text}>
+          <textarea className="ep-input" style={{ minHeight: 80, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.handle}>
+          <input className="ep-input" value={slide.handle || ""} onChange={e => onChange({ handle: e.target.value })} placeholder="@username" />
+        </FieldGroup>
+      </>)}
+
+      {/* body */}
+      {slide.type === "body" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        {slide.points ? (
+          <FieldGroup label={t.pointsLabel}>
+            {slide.points.map((point, pi) => (
+              <div key={pi} style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
+                <button
+                  onClick={() => {
+                    const np = [...slide.points!];
+                    np[pi] = { ...np[pi], type: np[pi].type === "plus" ? "minus" : "plus" };
+                    onChange({ points: np });
+                  }}
+                  style={{ width: 28, height: 28, flexShrink: 0, border: "none", borderRadius: 5, background: point.type === "plus" ? "#22c55e18" : "#ef444418", color: point.type === "plus" ? "#22c55e" : "#ef4444", cursor: "pointer", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  {point.type === "plus" ? "+" : "−"}
+                </button>
+                <input className="ep-input" style={{ flex: 1 }} value={point.text} onChange={e => {
+                  const np = [...slide.points!]; np[pi] = { ...np[pi], text: e.target.value }; onChange({ points: np });
+                }} />
+                <button style={removeBtnStyle} onClick={() => onChange({ points: slide.points!.filter((_, idx) => idx !== pi) })}>×</button>
+              </div>
+            ))}
+            <button style={addBtnStyle} onClick={() => onChange({ points: [...(slide.points || []), { type: "plus", text: "" }] })}>{t.addPoint}</button>
+          </FieldGroup>
+        ) : (
+          <FieldGroup label={t.text}>
+            <textarea className="ep-input" style={{ minHeight: 100, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+          </FieldGroup>
+        )}
+      </>)}
+
+      {/* quote */}
+      {slide.type === "quote" && (<>
+        <FieldGroup label={t.text}>
+          <textarea className="ep-input" style={{ minHeight: 100, resize: "vertical" }} value={slide.text || ""} onChange={e => onChange({ text: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.author}>
+          <input className="ep-input" value={slide.author || ""} onChange={e => onChange({ author: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.role}>
+          <input className="ep-input" value={slide.role || ""} onChange={e => onChange({ role: e.target.value })} />
+        </FieldGroup>
+      </>)}
+
+      {/* list / checklist */}
+      {(slide.type === "list" || slide.type === "checklist") && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.items}>
+          <textarea className="ep-input" style={{ minHeight: 120, resize: "vertical" }} value={(slide.items || []).join("\n")} onChange={e => onChange({ items: e.target.value.split("\n") })} />
+        </FieldGroup>
+      </>)}
+
+      {/* stats */}
+      {slide.type === "stats" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.statsLabel}>
+          {(slide.stats || []).map((stat, si) => (
+            <div key={si} style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
+              <input className="ep-input" style={{ width: "38%" }} value={stat.value} placeholder={t.statValue}
+                onChange={e => { const ns = [...(slide.stats || [])]; ns[si] = { ...ns[si], value: e.target.value }; onChange({ stats: ns }); }} />
+              <input className="ep-input" style={{ flex: 1 }} value={stat.label} placeholder={t.statCaption}
+                onChange={e => { const ns = [...(slide.stats || [])]; ns[si] = { ...ns[si], label: e.target.value }; onChange({ stats: ns }); }} />
+              <button style={removeBtnStyle} onClick={() => onChange({ stats: (slide.stats || []).filter((_, idx) => idx !== si) })}>×</button>
+            </div>
+          ))}
+          <button style={addBtnStyle} onClick={() => onChange({ stats: [...(slide.stats || []), { value: "", label: "" }] })}>{t.addStat}</button>
+        </FieldGroup>
+      </>)}
+
+      {/* process */}
+      {slide.type === "process" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.stepsLabel}>
+          {(slide.steps || []).map((step, si) => (
+            <div key={si} style={{ marginBottom: 8, padding: "9px 10px", background: "#161616", borderRadius: 7 }}>
+              <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 5 }}>
+                <span style={{ fontSize: 10, color: "#444", fontWeight: 700, width: 18 }}>{si + 1}.</span>
+                <input className="ep-input" style={{ flex: 1 }} value={step.title} placeholder={t.stepTitle}
+                  onChange={e => { const ns = [...(slide.steps || [])]; ns[si] = { ...ns[si], title: e.target.value }; onChange({ steps: ns }); }} />
+                <button style={removeBtnStyle} onClick={() => onChange({ steps: (slide.steps || []).filter((_, idx) => idx !== si) })}>×</button>
+              </div>
+              <input className="ep-input" style={{ marginLeft: 23 }} value={step.text || ""} placeholder={t.stepDesc}
+                onChange={e => { const ns = [...(slide.steps || [])]; ns[si] = { ...ns[si], text: e.target.value || undefined }; onChange({ steps: ns }); }} />
+            </div>
+          ))}
+          <button style={addBtnStyle} onClick={() => onChange({ steps: [...(slide.steps || []), { title: "" }] })}>{t.addStep}</button>
+        </FieldGroup>
+      </>)}
+
+      {/* comparison */}
+      {slide.type === "comparison" && (<>
+        <FieldGroup label={t.title}>
+          <input className="ep-input" value={slide.title || ""} onChange={e => onChange({ title: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.leftLabel}>
+          <input className="ep-input" value={slide.leftLabel || ""} onChange={e => onChange({ leftLabel: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.leftItems}>
+          <textarea className="ep-input" style={{ minHeight: 80, resize: "vertical" }} value={(slide.leftItems || []).join("\n")} onChange={e => onChange({ leftItems: e.target.value.split("\n") })} />
+        </FieldGroup>
+        <FieldGroup label={t.rightLabel}>
+          <input className="ep-input" value={slide.rightLabel || ""} onChange={e => onChange({ rightLabel: e.target.value })} />
+        </FieldGroup>
+        <FieldGroup label={t.rightItems}>
+          <textarea className="ep-input" style={{ minHeight: 80, resize: "vertical" }} value={(slide.rightItems || []).join("\n")} onChange={e => onChange({ rightItems: e.target.value.split("\n") })} />
+        </FieldGroup>
+      </>)}
+
+      {/* Export button */}
+      <button onClick={onExport} className="tb-btn" style={{ width: "100%", marginTop: 20, padding: "10px 0", background: "#6366F1", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+        {t.exportBtn}
+      </button>
+    </div>
+  );
+}
+
+// ============================================================
 // I18N
 // ============================================================
 
@@ -1645,9 +1914,17 @@ export default function CarouselPage() {
   const [bgType, setBgType] = useState<BgType>(DEFAULT_BG);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
+  const [slides, setSlides] = useState<SlideData[]>(() => [...SLIDES]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const langRef = useRef<Lang>("ru");
   langRef.current = lang;
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
   const offscreenRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const updateSlide = useCallback((index: number, patch: Partial<SlideData>) => {
+    setSlides(prev => prev.map((s, i) => i === index ? { ...s, ...patch } : s));
+  }, []);
 
   const canvasW = FORMAT_PRESETS[formatId].w;
   const canvasH = FORMAT_PRESETS[formatId].h;
@@ -1687,7 +1964,7 @@ export default function CarouselPage() {
       const dataUrl = await captureSlide(index);
       if (!dataUrl) return;
       const link = document.createElement("a");
-      link.download = `${String(index + 1).padStart(2, "0")}-${SLIDES[index].type}.png`;
+      link.download = `${String(index + 1).padStart(2, "0")}-${slidesRef.current[index].type}.png`;
       link.href = dataUrl;
       link.click();
     },
@@ -1697,8 +1974,9 @@ export default function CarouselPage() {
   const exportAll = useCallback(async () => {
     setExporting(true);
     const tl = T[langRef.current];
-    for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(tl.statusExport(i + 1, SLIDES.length));
+    const n = slidesRef.current.length;
+    for (let i = 0; i < n; i++) {
+      setExportStatus(tl.statusExport(i + 1, n));
       await exportSlide(i);
       await new Promise((r) => setTimeout(r, 300));
     }
@@ -1716,8 +1994,9 @@ export default function CarouselPage() {
     const jpegOpts = { width: canvasW, height: canvasH, pixelRatio: 2, cacheBust: true, backgroundColor: preset.bg, quality: 0.92 };
 
     const tl = T[langRef.current];
-    for (let i = 0; i < SLIDES.length; i++) {
-      setExportStatus(tl.statusPdf(i + 1, SLIDES.length));
+    const n = slidesRef.current.length;
+    for (let i = 0; i < n; i++) {
+      setExportStatus(tl.statusPdf(i + 1, n));
       const el = offscreenRefs.current[i];
       if (!el) continue;
 
@@ -1743,7 +2022,8 @@ export default function CarouselPage() {
 
   return (
     <CanvasSizeContext.Provider value={{ w: canvasW, h: canvasH }}>
-    <div suppressHydrationWarning style={{ minHeight: "100vh", padding: 32 }}>
+    <div suppressHydrationWarning style={{ display: "flex", minHeight: "100vh", alignItems: "flex-start" }}>
+    <div style={{ flex: 1, minWidth: 0, padding: 32 }}>
       {/* Toolbar */}
       <div style={{ marginBottom: 32 }}>
         {/* Title + Export + Lang toggle */}
@@ -1886,42 +2166,57 @@ export default function CarouselPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
           gap: 20,
         }}
       >
-        {SLIDES.map((slide, i) => (
+        {slides.map((slide, i) => (
           <div key={i}>
             <div
-              onClick={() => !exporting && exportSlide(i)}
-              className="slide-card"
-              title="Click to export this slide"
+              onClick={() => !exporting && setEditingIndex(editingIndex === i ? null : i)}
+              className={`slide-card${editingIndex === i ? " slide-card--active" : ""}`}
+              title={editingIndex === i ? undefined : (lang === "ru" ? "Нажмите для редактирования" : "Click to edit")}
+              style={{ position: "relative" }}
             >
               <SlidePreview
                 data={slide}
                 preset={preset}
                 index={i}
-                total={SLIDES.length}
+                total={slides.length}
                 bgType={bgType}
               />
+              <div className="slide-edit-overlay">
+                <span style={{ fontSize: 15 }}>✏</span>
+                <span>{lang === "ru" ? "Редактировать" : "Edit"}</span>
+              </div>
             </div>
             <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 fontSize: 12,
                 color: "#888",
                 marginTop: 8,
-                textAlign: "center",
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {i + 1}/{SLIDES.length} — {slide.type}
+              <span>{i + 1}/{slides.length} — {slide.type}</span>
+              <button
+                onClick={() => !exporting && exportSlide(i)}
+                className="tb-btn"
+                title={lang === "ru" ? "Экспорт PNG" : "Export PNG"}
+                style={{ background: "transparent", border: "1px solid #2a2a2a", borderRadius: 5, color: "#555", cursor: "pointer", fontSize: 11, padding: "2px 7px", lineHeight: 1.6 }}
+              >
+                ↓
+              </button>
             </div>
           </div>
         ))}
       </div>
 
       {/* Offscreen slides for export — always rendered at (0,0), invisible via opacity */}
-      {SLIDES.map((slide, i) => (
+      {slides.map((slide, i) => (
         <div
           key={`export-${i}`}
           ref={(el) => {
@@ -1939,7 +2234,7 @@ export default function CarouselPage() {
             fontFamily: preset.fontFamily,
           }}
         >
-          <Slide data={slide} preset={preset} index={i} total={SLIDES.length} bgType={bgType} />
+          <Slide data={slide} preset={preset} index={i} total={slides.length} bgType={bgType} />
         </div>
       ))}
 
@@ -1952,8 +2247,24 @@ export default function CarouselPage() {
           textAlign: "center",
         }}
       >
-        {t.footer(canvasW, canvasH, SLIDES.length)}
+        {t.footer(canvasW, canvasH, slides.length)}
       </div>
+    </div>
+
+    {/* Edit Panel */}
+    {editingIndex !== null && editingIndex < slides.length && (
+      <EditPanel
+        slide={slides[editingIndex]}
+        index={editingIndex}
+        total={slides.length}
+        preset={preset}
+        bgType={bgType}
+        lang={lang}
+        onChange={(patch) => updateSlide(editingIndex, patch)}
+        onClose={() => setEditingIndex(null)}
+        onExport={() => exportSlide(editingIndex)}
+      />
+    )}
     </div>
     </CanvasSizeContext.Provider>
   );
